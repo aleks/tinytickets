@@ -123,6 +123,20 @@ func TestLegacyHistoryMigration(t *testing.T) {
 	if len(events) != 2 || events[1].Kind != "transition" {
 		t.Fatal("external writes must record transitions", events)
 	}
+	// Original releases wrote user_version=1 on every open. Repair that marker
+	// without rebuilding the history or adding a second baseline.
+	if _, err = s.db.Exec("PRAGMA user_version=1"); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	events, err = reopened.TicketHistory(context.Background(), id)
+	if err != nil || len(events) != 2 {
+		t.Fatalf("older version marker damaged history: %v %v", events, err)
+	}
 }
 
 func TestFutureHistorySchema(t *testing.T) {
@@ -291,5 +305,46 @@ func TestExecutionMCP(t *testing.T) {
 	report, _ := a.Store.ProjectExecution(ctx, p)
 	if report.Metrics.CompletionSamples != 1 || report.Metrics.Completed != 1 {
 		t.Fatal(report)
+	}
+}
+
+func TestExecutionTimingCoverageAndBuckets(t *testing.T) {
+	now := time.Date(2026, 11, 9, 1, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		kind, status, state string
+		complete            bool
+	}{
+		{"created", "todo", "not_started", true}, {"baseline", "todo", "unavailable", false},
+		{"baseline", "done", "unavailable", false}, {"created", "done", "observed", true},
+		{"created", "ready_for_review", "observed", true}, {"baseline", "ready_for_review", "observed", false},
+	} {
+		timing, err := deriveExecution(Ticket{Status: tc.status}, []StatusEvent{{Kind: tc.kind, ToStatus: tc.status, ChangedAt: stamp(now.Add(-30 * time.Second))}}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if timing.TimingState != tc.state || timing.HistoryComplete != tc.complete || timing.CycleSeconds != nil || timing.StartedAt != nil || timing.ActiveAgeSeconds != nil {
+			t.Fatalf("%+v: %+v", tc, timing)
+		}
+		if tc.status == "ready_for_review" && timing.ReviewSeconds != 30 {
+			t.Fatal(timing)
+		}
+	}
+	metrics := executionMetrics([]TicketExecution{{Ticket: Ticket{Status: "done"}, CycleSeconds: ptr(0.0)}, {Ticket: Ticket{Status: "done"}, CycleSeconds: ptr(10.0)}}, nil)
+	if metrics.MedianCompletionSeconds == nil || *metrics.MedianCompletionSeconds != 5 || metrics.CompletionSamples != 2 {
+		t.Fatal(metrics)
+	}
+	tickets := []TicketExecution{
+		{FirstObservedCompletionAt: ptr("2026-11-08T23:59:59Z")},
+		{FirstObservedCompletionAt: ptr("2026-11-09T00:00:00Z")},
+		{FirstObservedCompletionAt: ptr("2026-11-08T20:00:00-05:00")},
+		{FirstObservedCompletionAt: ptr("2026-11-10T00:00:00Z")}, // Future records must not enter current buckets.
+	}
+	daily := completionBuckets(tickets, now, false)
+	weekly := completionBuckets(tickets, now, true)
+	if len(daily) != 28 || daily[27].Date != "2026-11-09" || daily[27].Tickets != 2 || daily[26].Tickets != 1 {
+		t.Fatal(daily)
+	}
+	if len(weekly) != 12 || weekly[11].Date != "2026-11-09" || weekly[11].Tickets != 2 || weekly[10].Date != "2026-11-02" || weekly[10].Tickets != 1 {
+		t.Fatal(weekly)
 	}
 }

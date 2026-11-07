@@ -46,8 +46,10 @@ func migrateExecutionHistory(db *sql.DB) error {
 		return fmt.Errorf("database schema version %d is newer than supported version 2", version)
 	}
 	if version < 2 {
+		// v1 binaries unconditionally reset user_version on open. Existing v2
+		// events/triggers must survive repairing that marker without duplicates.
 		_, err = conn.ExecContext(ctx, `
-			CREATE TABLE ticket_status_events (
+			CREATE TABLE IF NOT EXISTS ticket_status_events (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
 				from_status TEXT CHECK(from_status IN ('todo','in_progress','ready_for_review','done')),
@@ -55,14 +57,15 @@ func migrateExecutionHistory(db *sql.DB) error {
 				changed_at TEXT NOT NULL,
 				kind TEXT NOT NULL CHECK(kind IN ('created','baseline','transition'))
 			);
-			CREATE INDEX status_events_ticket ON ticket_status_events(ticket_id, id);
+			CREATE INDEX IF NOT EXISTS status_events_ticket ON ticket_status_events(ticket_id, id);
 			INSERT INTO ticket_status_events(ticket_id, to_status, changed_at, kind)
-				SELECT id, status, strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'baseline' FROM tickets;
-			CREATE TRIGGER ticket_status_created AFTER INSERT ON tickets BEGIN
+				SELECT id, status, strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'baseline' FROM tickets
+				WHERE NOT EXISTS (SELECT 1 FROM ticket_status_events h WHERE h.ticket_id=tickets.id);
+			CREATE TRIGGER IF NOT EXISTS ticket_status_created AFTER INSERT ON tickets BEGIN
 				INSERT INTO ticket_status_events(ticket_id, to_status, changed_at, kind)
 				VALUES (NEW.id, NEW.status, NEW.created_at, 'created');
 			END;
-			CREATE TRIGGER ticket_status_changed AFTER UPDATE OF status ON tickets
+			CREATE TRIGGER IF NOT EXISTS ticket_status_changed AFTER UPDATE OF status ON tickets
 			WHEN NEW.status != OLD.status BEGIN
 				INSERT INTO ticket_status_events(ticket_id, from_status, to_status, changed_at, kind)
 				VALUES (NEW.id, OLD.status, NEW.status, strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'transition');
