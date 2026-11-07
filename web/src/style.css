@@ -5,7 +5,7 @@
   --bg: #fafaf9; --surface: #fff; --sidebar: #f3f3f1; --column: #f2f3f2; --hover: #eaece9;
   --border: #e4e6e2; --border-strong: #d5d9d3; --text: #292c31; --muted: #898d8a; --secondary: #626962;
   --accent: #3c6957; --accent-hover: #305844; --accent-soft: #e3ebe4; --accent-text: #3c6957;
-  --shadow: 0 1px 3px #1c302107; --danger: #b74e4e; --input: #fff;
+  --shadow: 0 1px 3px #1c302107; --danger: #b74e4e; --input: #fff; --overlay: #101a1460;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -19,10 +19,30 @@
 :root[data-accent='lavender'] { --accent: #786388; --accent-hover: #665275; --accent-soft: #ede7f1; --accent-text: #786388 }
 :root[data-accent='clay'] { --accent: #916956; --accent-hover: #7b5847; --accent-soft: #f1e8e2; --accent-text: #916956 }
 :root[data-accent='sand'] { --accent: #85713e; --accent-hover: #705e32; --accent-soft: #eeeadd; --accent-text: #85713e }
-:root[data-theme='dark'][data-accent='slate'] { --accent: #617e95; --accent-hover: #728fa6; --accent-soft: #293640; --accent-text: #a1b8ca }
-:root[data-theme='dark'][data-accent='lavender'] { --accent: #89729b; --accent-hover: #9a83ab; --accent-soft: #382f40; --accent-text: #c2afd0 }
-:root[data-theme='dark'][data-accent='clay'] { --accent: #a17862; --accent-hover: #b18a74; --accent-soft: #403229; --accent-text: #d2b09a }
-:root[data-theme='dark'][data-accent='sand'] { --accent: #948049; --accent-hover: #a5915b; --accent-soft: #3b3626; --accent-text: #c9bb8a }
+:root[data-theme='dark'][data-accent='slate'] {
+  --accent: #617e95; --accent-hover: #728fa6; --accent-soft: #293640; --accent-text: #a1b8ca;
+  --bg: #171a1d; --surface: #20252a; --sidebar: #131619; --column: #1c2024; --hover: #2b333a;
+  --border: #2d353d; --border-strong: #414c55; --text: #e1e6eb; --muted: #83909b; --secondary: #aab4bd;
+  --input: #1a1f23; --overlay: #10151a60;
+}
+:root[data-theme='dark'][data-accent='lavender'] {
+  --accent: #89729b; --accent-hover: #9a83ab; --accent-soft: #382f40; --accent-text: #c2afd0;
+  --bg: #1b181e; --surface: #26212b; --sidebar: #161319; --column: #211d26; --hover: #342d3b;
+  --border: #37303f; --border-strong: #4d4358; --text: #e8e1ed; --muted: #93879f; --secondary: #b5a9bf;
+  --input: #201b24; --overlay: #17101a60;
+}
+:root[data-theme='dark'][data-accent='clay'] {
+  --accent: #a17862; --accent-hover: #b18a74; --accent-soft: #403229; --accent-text: #d2b09a;
+  --bg: #1e1917; --surface: #2b2320; --sidebar: #191513; --column: #261f1c; --hover: #3b302a;
+  --border: #3f332d; --border-strong: #58483f; --text: #ede4df; --muted: #9f8c82; --secondary: #bfb0a7;
+  --input: #241e1a; --overlay: #1a141060;
+}
+:root[data-theme='dark'][data-accent='sand'] {
+  --accent: #948049; --accent-hover: #a5915b; --accent-soft: #3b3626; --accent-text: #c9bb8a;
+  --bg: #1d1b16; --surface: #29261e; --sidebar: #181610; --column: #242119; --hover: #383326;
+  --border: #3d3729; --border-strong: #554d38; --text: #ebe7db; --muted: #9a927c; --secondary: #bbb49e;
+  --input: #232016; --overlay: #1a181060;
+}
 * { box-sizing: border-box }
 body { margin: 0; font-size: 15px; line-height: 1.5 }
 button, input, select, textarea { font: inherit; color: inherit }
@@ -188,7 +208,7 @@ h1 { font-size: 28px; line-height: 1.3; font-weight: 600; letter-spacing: -.85px
 @keyframes spin { to { transform: rotate(360deg) } }
 .error-banner, .form-error { background: color-mix(in srgb, var(--danger) 9%, var(--surface)); color: var(--danger); font-size: 14px; padding: 8px 10px; border-radius: 5px }
 .error-banner { margin: 11px 24px 0; display: flex; align-items: center; justify-content: space-between }
-.modal-backdrop { position: fixed; inset: 0; background: #101a1460; backdrop-filter: blur(3px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto }
+.modal-backdrop { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(3px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto }
 .modal { width: 440px; max-width: 100%; max-height: calc(100dvh - 48px); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 20px 80px #0003 }
 .modal.ticket-modal { width: 620px }
 .modal-heading { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); padding: 11px 17px }

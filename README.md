@@ -31,7 +31,7 @@ The database defaults to `~/.tinytickets/tinytickets.db`. Parent directories are
 - The overview shows active epics and their tickets. Completing an epic hides it **and its tickets** from the overview without deleting anything. Completed epics remain in the sidebar, all-epics page, and project pages, and can be reopened.
 - Projects and epics can only be deleted when empty. Ticket deletion removes its links.
 - Light/dark mode initially follows your system preference; the toggle saves an explicit choice locally.
-- The color picker beside the theme toggle offers five muted accents: Sage (default), Slate, Lavender, Clay, and Sand. The choice applies in both modes and is saved locally alongside your theme preference.
+- The color picker beside the theme toggle offers five muted accents: Sage (default), Slate, Lavender, Clay, and Sand. In dark mode, backgrounds, borders, and text neutrals also follow the selected palette. The choice applies in both modes and is saved locally alongside your theme preference.
 - Server-sent events refresh the board after REST/MCP changes. A SQLite watcher also detects writes from separate stdio processes (within about one second). A 15-second polling fallback handles buffered streams; reconnecting or waking the tab triggers a fresh snapshot.
 
 No sample projects or tickets are added to your database.

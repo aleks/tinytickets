@@ -97,16 +97,48 @@ try {
     assert.equal(await page.locator('html').getAttribute('data-accent'), label.toLowerCase())
   }
   const accentValue = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())
+  const rgb = hex => `rgb(${hex.slice(1).match(/../g).map(channel => parseInt(channel, 16)).join(', ')})`
+  const checkBackground = async (selector, hex) => {
+    // Board columns transition between palettes; assert the final rendered color.
+    await page.waitForFunction(({ selector, expected }) => {
+      const el = document.querySelector(selector)
+      return el && getComputedStyle(el).backgroundColor === expected
+    }, { selector, expected: rgb(hex) })
+  }
+  const darkSurfaces = {
+    Sage: ['#171a19', '#202422', '#131614', '#1c201e', '#1a1e1b', '#2d342f'],
+    Slate: ['#171a1d', '#20252a', '#131619', '#1c2024', '#1a1f23', '#2d353d'],
+    Lavender: ['#1b181e', '#26212b', '#161319', '#211d26', '#201b24', '#37303f'],
+    Clay: ['#1e1917', '#2b2320', '#191513', '#261f1c', '#241e1a', '#3f332d'],
+    Sand: ['#1d1b16', '#29261e', '#181610', '#242119', '#232016', '#3d3729'],
+  }
   for (const [label, light] of colors) { await chooseAccent(label); assert.equal(await accentValue(), light) }
   await page.getByRole('button', { name: 'Switch to dark mode' }).click()
-  for (const [label, , dark] of colors) { await chooseAccent(label); assert.equal(await accentValue(), dark) }
+  for (const [label, , dark] of colors) {
+    await chooseAccent(label)
+    assert.equal(await accentValue(), dark)
+    const [background, surface, sidebar, column, input, border] = darkSurfaces[label]
+    await checkBackground('html', background)
+    await checkBackground('.sidebar', sidebar)
+    await checkBackground('.ticket-card', surface)
+    await checkBackground('.column', column)
+    assert.equal(await page.locator('.ticket-card').first().evaluate(el => getComputedStyle(el).borderTopColor), rgb(border))
+    await page.getByRole('button', { name: 'New ticket', exact: true }).click()
+    await checkBackground('.modal', surface)
+    await checkBackground('.field-label input', input)
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  }
   await chooseAccent('Lavender')
   await page.reload()
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark')
   assert.equal(await page.locator('html').getAttribute('data-accent'), 'lavender')
+  await checkBackground('html', darkSurfaces.Lavender[0])
   await page.getByRole('button', { name: 'Switch to light mode' }).click()
   assert.equal(await page.locator('html').getAttribute('data-accent'), 'lavender')
   assert.equal(await accentValue(), '#786388')
+  await checkBackground('html', '#fafaf9')
+  await checkBackground('.sidebar', '#f3f3f1')
+  await checkBackground('.ticket-card', '#ffffff')
   await page.getByRole('button', { name: 'Choose accent color', exact: true }).click()
   assert.equal(await page.getByRole('button', { name: 'Lavender', exact: true }).getAttribute('aria-pressed'), 'true')
   assert.equal(await page.getByRole('button', { name: 'Lavender', exact: true }).evaluate(e => e === document.activeElement), true)
