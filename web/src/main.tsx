@@ -34,6 +34,10 @@ function initialView(): View {
   return { type: 'home' }
 }
 
+function viewHref(view: View): string {
+  return `#${view.type === 'home' ? '' : 'id' in view ? `${view.type}/${view.id}` : view.type}`
+}
+
 function App() {
   const [data, setData] = useState<Workspace>(empty)
   const [loaded, setLoaded] = useState(false)
@@ -70,7 +74,7 @@ function App() {
   }, [])
 
   function navigate(next: View) {
-    location.hash = next.type === 'home' ? '' : 'id' in next ? `${next.type}/${next.id}` : next.type
+    location.hash = viewHref(next)
     setView(next); setQuery(''); setSidebarOpen(false)
   }
   function toggleTheme() {
@@ -107,6 +111,17 @@ function App() {
   const boardView = view.type === 'home' || view.type === 'project' || view.type === 'epic'
   const notFound = loaded && ((view.type === 'project' && !currentProject) || (view.type === 'epic' && !currentEpic))
   const activeCount = visibleEpics.filter(e => !e.completed).length
+  const epicProject = currentEpic && data.projects.find(p => p.id === currentEpic.project_id)
+  const breadcrumbs: { label: string; view?: View }[] = [{ label: 'Workspace', view: { type: 'home' } }]
+  if (view.type === 'project' || view.type === 'epic') {
+    breadcrumbs.push({ label: 'Projects', view: { type: 'projects' } })
+    const project = currentProject || epicProject
+    if (project) breadcrumbs.push({ label: project.name, view: { type: 'project', id: project.id } })
+    if (currentEpic) breadcrumbs.push({ label: currentEpic.title, view: { type: 'epic', id: currentEpic.id } })
+    if (!loaded || notFound) breadcrumbs.push({ label: loaded ? 'Not found' : 'Loading…' })
+  } else {
+    breadcrumbs.push({ label: title, view })
+  }
 
   function newTicket(status: Status = 'todo') {
     if (!data.projects.length) { setDialog({ type: 'project' }); return }
@@ -130,7 +145,7 @@ function App() {
     </aside>
 
     <main>
-      <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><span>Workspace</span><span className="slash">/</span><strong>{view.type === 'epic' ? data.projects.find(p => p.id === currentEpic?.project_id)?.name || 'Epic' : title}</strong>{view.type === 'epic' && <><span className="slash">/</span><strong className="truncate">{title}</strong></>}</div><span className="topbar-label"><span className="tiny-square" />Personal workspace</span></header>
+      <header className="topbar"><div className="topbar-navigation"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><nav className="breadcrumb" aria-label="Breadcrumb"><ol>{breadcrumbs.map((crumb, index) => <li key={crumb.view ? viewHref(crumb.view) + index : 'missing'}>{index > 0 && <span className="slash" aria-hidden="true">/</span>}{crumb.view ? <a className="truncate" href={viewHref(crumb.view)} title={crumb.label} aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined} onClick={e => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); navigate(crumb.view!) } }}>{crumb.label}</a> : <span className="truncate" aria-current="page">{crumb.label}</span>}</li>)}</ol></nav></div><span className="topbar-label"><span className="tiny-square" />Personal workspace</span></header>
       {error && <div className="error-banner" role="alert">{error}<button className="icon-button" aria-label="Dismiss error" onClick={() => setError('')}><X size={16} /></button></div>}
       <div className="page-content">
         <div className="page-heading"><div><div className="eyebrow">{view.type === 'home' ? 'YOUR WORKSPACE' : view.type === 'epic' ? 'EPIC' : view.type === 'project' ? 'PROJECT' : 'WORKSPACE'}</div><h1>{title}{currentEpic?.completed && <span className="badge completed-badge"><Check size={12} />Completed</span>}</h1></div><div className="heading-actions">

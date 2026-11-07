@@ -38,6 +38,23 @@ try {
   await page.getByRole('button', { name: 'Create epic', exact: true }).click()
   await page.locator('.nav-epic-project').filter({ hasText: /^TinyTickets$/ }).waitFor()
 
+  // Every displayed entity is a genuine link, including the current page.
+  const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb', exact: true })
+  await page.locator('.epic-card').click()
+  assert.equal(await breadcrumb.getByRole('link', { name: 'First release', exact: true }).getAttribute('href'), '#epic/1')
+  assert.equal(await breadcrumb.getByRole('link', { name: 'First release', exact: true }).getAttribute('aria-current'), 'page')
+  await breadcrumb.getByRole('link', { name: 'TinyTickets', exact: true }).click()
+  await page.getByRole('heading', { name: 'TinyTickets', exact: true }).waitFor()
+  assert.equal(new URL(page.url()).hash, '#project/1')
+  await breadcrumb.getByRole('link', { name: 'Projects', exact: true }).click()
+  await page.getByRole('heading', { name: 'Projects', exact: true }).waitFor()
+  await breadcrumb.getByRole('link', { name: 'Workspace', exact: true }).click()
+  await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor()
+  await page.locator('aside').getByRole('button', { name: /^Epics/ }).click()
+  assert.equal(await breadcrumb.getByRole('link', { name: 'Epics', exact: true }).getAttribute('href'), '#epics')
+  await breadcrumb.getByRole('link', { name: 'Workspace', exact: true }).click()
+  await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor()
+
   await page.getByRole('button', { name: 'New ticket', exact: true }).click()
   await page.getByLabel('Title', { exact: true }).fill('Build the board')
   await page.getByLabel('Description', { exact: true }).fill('A functional board with live updates.')
@@ -87,7 +104,7 @@ try {
   await page.locator('.sidebar.open').waitFor()
   await page.getByRole('button', { name: 'Close navigation', exact: true }).click()
   assert.deepEqual(errors, [])
-  console.log('PASS: CRUD, dependencies, drag/drop, live updates, concurrent edits, themes, epic completion/reopen, mobile navigation')
+  console.log('PASS: breadcrumbs, CRUD, dependencies, drag/drop, live updates, concurrent edits, themes, epic completion/reopen, mobile navigation')
 } finally {
   await browser?.close()
   if (server.pid && server.exitCode === null && !server.killed) {
