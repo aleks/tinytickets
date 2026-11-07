@@ -25,7 +25,9 @@ The database defaults to `~/.tinytickets/tinytickets.db`. Parent directories are
 ## Workspace
 
 - Projects contain epics; epics contain tickets. Neither parent is optional.
-- Tickets have a title, plain-text description, and one of four statuses: **Todo**, **In progress**, **Ready for review**, **Done**.
+- Tickets have a title, a description stored as text, and one of four statuses: **Todo**, **In progress**, **Ready for review**, **Done**.
+- Click a ticket's title in its editor header to open its full page (`/#ticket/{id}`). Descriptions render as Markdown with tables, task lists, fenced code blocks, and fenced `mermaid` diagrams. Raw HTML and active diagram content are not allowed; invalid diagrams show their source instead. Mermaid loads locally on demand, with no external rendering service. Diagrams follow your theme and accent.
+- Full ticket pages show project/epic links, status, dependencies, and timestamps. Use **Edit ticket** to change titles, descriptions, or dependencies; status and epic can also be changed directly in the details sidebar. Full pages support direct links, browser navigation, live updates, and completed epics.
 - Drag tickets between columns, or change status in the ticket editor (also works with keyboard/touch).
 - Links express **blocks / blocked by**. The two labels describe the same directed link. Self-links and dependency cycles are rejected. Unfinished blockers are flagged on cards; they do not prevent moving a ticket.
 - The overview shows active epics and their tickets. Completing an epic hides it **and its tickets** from the overview without deleting anything. Completed epics remain in the sidebar, all-epics page, and project pages, and can be reopened.

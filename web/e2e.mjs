@@ -85,6 +85,102 @@ try {
   await page.locator('.column-done .ticket-card').filter({ hasText: 'Board is ready' }).waitFor()
   assert.equal(await page.locator('.blocked-badge').count(), 0)
 
+  // Full ticket pages: modal title link, safe Markdown/Mermaid, edits and links.
+  const description = [
+    '## Delivery plan', '', '**Ship carefully** with `go test`.', '',
+    '- [x] Build the board', '- [ ] Review the release', '',
+    '| Step | State |', '| --- | --- |', '| Board | Ready |', '',
+    '[Epic](#epic/1)', '[Unsafe](javascript:alert%281%29)',
+    '<img src=x onerror="window.ticketXSS=true">', '',
+    '```go', 'fmt.Println("ready")', '```', '',
+    '```mermaid', '%%{init: {"securityLevel":"loose","themeCSS":"body { display: none }"}}%%',
+    'flowchart LR', '  Start --> Review', '  click Start "https://example.com"', '```', '',
+    '```mermaid', 'sequenceDiagram', '  Alice->>Bob: Review the board', '```',
+  ].join('\n')
+  await page.request.patch(`${url}/api/tickets/1`, { data: { description } })
+  await page.locator('.ticket-card').filter({ hasText: 'Board is ready' }).click()
+  const fullPageLink = page.getByRole('dialog').getByRole('link', { name: /Board is ready/ })
+  assert.equal(await fullPageLink.getAttribute('href'), '#ticket/1')
+  await page.getByLabel('Title', { exact: true }).fill('Unsaved title')
+  page.once('dialog', dialog => dialog.dismiss())
+  await fullPageLink.click()
+  assert.equal(await page.getByRole('dialog').count(), 1)
+  page.once('dialog', dialog => dialog.accept())
+  await fullPageLink.click()
+  await page.getByRole('heading', { name: 'Board is ready', exact: true }).waitFor()
+  assert.equal(new URL(page.url()).hash, '#ticket/1')
+  assert.equal(await page.getByRole('dialog').count(), 0)
+  await page.locator('.markdown strong').filter({ hasText: 'Ship carefully' }).waitFor()
+  assert.equal(await page.locator('.markdown table').count(), 1)
+  assert.equal(await page.locator('.markdown input[type=checkbox]').count(), 2)
+  assert.equal(await page.locator('.markdown code.language-go').textContent(), 'fmt.Println("ready")\n')
+  await page.locator('.mermaid-diagram svg').nth(1).waitFor()
+  assert.equal(await page.locator('.mermaid-diagram svg').count(), 2)
+  assert.match(await page.locator('.mermaid-diagram svg').first().textContent(), /Start/)
+  assert.match(await page.locator('.mermaid-diagram svg').nth(1).textContent(), /Alice/)
+  assert.equal(await page.locator('.mermaid-diagram svg a, .mermaid-diagram svg script, .markdown img').count(), 0)
+  assert.ok(!(await page.getByRole('link', { name: 'Unsafe', exact: true }).getAttribute('href') || '').startsWith('javascript:'))
+  assert.equal(await page.evaluate(() => window.ticketXSS), undefined)
+  assert.notEqual(await page.locator('body').evaluate(el => getComputedStyle(el).display), 'none')
+  assert.equal(await breadcrumb.getByRole('link', { name: 'TT-1', exact: true }).getAttribute('aria-current'), 'page')
+  assert.equal(await breadcrumb.getByRole('link', { name: 'First release', exact: true }).getAttribute('href'), '#epic/1')
+  const details = page.getByRole('complementary', { name: 'Ticket details', exact: true })
+  await details.getByLabel('Status', { exact: true }).selectOption('in_progress')
+  await page.waitForFunction(() => document.querySelector('.ticket-details select')?.value === 'in_progress' && !document.querySelector('.ticket-details select')?.disabled)
+  assert.equal((await (await page.request.get(`${url}/api/tickets/1`)).json()).status, 'in_progress')
+  await details.getByLabel('Status', { exact: true }).selectOption('done')
+  const anotherProject = await (await page.request.post(`${url}/api/projects`, { data: { name: 'Another project' } })).json()
+  const anotherEpic = await (await page.request.post(`${url}/api/epics`, { data: { project_id: anotherProject.id, title: 'Another epic' } })).json()
+  await details.getByLabel('Epic', { exact: true }).selectOption(String(anotherEpic.id))
+  await breadcrumb.getByRole('link', { name: 'Another project', exact: true }).waitFor()
+  await breadcrumb.getByRole('link', { name: 'Another epic', exact: true }).waitFor()
+  await details.getByLabel('Epic', { exact: true }).selectOption('1')
+  await breadcrumb.getByRole('link', { name: 'First release', exact: true }).waitFor()
+  await page.request.delete(`${url}/api/epics/${anotherEpic.id}`)
+  await page.request.delete(`${url}/api/projects/${anotherProject.id}`)
+  await page.getByRole('button', { name: 'Edit ticket', exact: true }).click()
+  await page.getByLabel('Description', { exact: true }).fill(description + '\n\nEdited from the ticket page.')
+  await page.getByRole('button', { name: 'Save changes', exact: true }).click()
+  await page.locator('.markdown').getByText('Edited from the ticket page.', { exact: true }).waitFor()
+  await page.reload()
+  await page.getByRole('heading', { name: 'Board is ready', exact: true }).waitFor()
+  await page.locator('.mermaid-diagram svg').nth(1).waitFor()
+  // Diagrams rerender when theme or accent changes, not just on page reload.
+  const diagramID = await page.locator('.mermaid-diagram svg').first().getAttribute('id')
+  await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click()
+  await page.waitForFunction(id => {
+    const svg = document.querySelector('.mermaid-diagram svg')
+    return svg && svg.id !== id
+  }, diagramID)
+  await page.getByRole('button', { name: 'Choose accent color', exact: true }).click()
+  await page.getByRole('button', { name: 'Lavender', exact: true }).click()
+  await page.waitForFunction(() => {
+    const node = document.querySelector('.mermaid-diagram svg .node rect')
+    return node && getComputedStyle(node).fill === 'rgb(56, 47, 64)'
+  })
+  await page.getByRole('button', { name: 'Switch to light mode', exact: true }).click()
+  await details.getByRole('link', { name: /Review the release/ }).click()
+  await page.getByRole('heading', { name: 'Review the release', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Add a description…', exact: true }).click()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.goBack()
+  await page.getByRole('heading', { name: 'Board is ready', exact: true }).waitFor()
+  // Invalid diagram syntax must not break the page, and later updates recover.
+  await page.request.patch(`${url}/api/tickets/1`, { data: { description: '```mermaid\nnot a valid diagram\n```' } })
+  await page.getByText('Unable to render Mermaid diagram. Check its syntax or size.', { exact: true }).waitFor()
+  await page.request.patch(`${url}/api/tickets/1`, { data: { description } })
+  await page.locator('.mermaid-diagram svg').nth(1).waitFor()
+  // Completed epics remain addressable through direct ticket links.
+  await page.request.patch(`${url}/api/epics/1`, { data: { completed: true } })
+  await page.getByText('Completed epic', { exact: true }).waitFor()
+  await page.reload()
+  await page.getByRole('heading', { name: 'Board is ready', exact: true }).waitFor()
+  await page.request.patch(`${url}/api/epics/1`, { data: { completed: false } })
+  await page.goto(`${url}/#ticket/999999`)
+  await page.getByRole('heading', { name: 'Not found', exact: true }).first().waitFor()
+  await breadcrumb.getByRole('link', { name: 'Workspace', exact: true }).click()
+  await page.locator('.ticket-card').first().waitFor()
+
   // Accent preferences apply to the whole interface in both modes.
   const colors = [
     ['Sage', '#3c6957', '#658f75'], ['Slate', '#526c80', '#617e95'],
@@ -173,6 +269,14 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-accent'), 'clay')
   // Click the exposed backdrop, not its center underneath the open sidebar.
   await page.getByRole('button', { name: 'Close navigation', exact: true }).click({ position: { x: 375, y: 100 } })
+  await page.goto(`${url}/#ticket/1`)
+  await page.getByRole('heading', { name: 'Board is ready', exact: true }).waitFor()
+  await page.locator('.mermaid-diagram svg').nth(1).waitFor()
+  await page.getByRole('complementary', { name: 'Ticket details', exact: true }).waitFor()
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+  // Ticket deletion is reflected in an already open full page.
+  await page.request.delete(`${url}/api/tickets/1`)
+  await page.getByRole('heading', { name: 'Not found', exact: true }).first().waitFor()
   // Appearance changes still work if localStorage is blocked by the browser.
   const privatePage = await browser.newPage()
   privatePage.on('pageerror', err => errors.push(err.message))
@@ -186,7 +290,7 @@ try {
   assert.equal(await privatePage.locator('html').getAttribute('data-accent'), 'slate')
   await privatePage.close()
   assert.deepEqual(errors, [])
-  console.log('PASS: breadcrumbs, CRUD, dependencies, drag/drop, live updates, concurrent edits, themes, persistent accents, epic completion/reopen, mobile navigation, blocked storage')
+  console.log('PASS: full ticket pages, safe Markdown/Mermaid, editing, breadcrumbs, CRUD, dependencies, live updates, themes, persistent accents, mobile layout, blocked storage')
 } finally {
   await browser?.close()
   if (server.pid && server.exitCode === null && !server.killed) {

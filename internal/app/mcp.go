@@ -13,7 +13,7 @@ func addTool[In, Out any](s *mcp.Server, name, description string, fn func(conte
 }
 
 func (a *App) newMCP() *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "tinytickets", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "TinyTickets organizes projects > epics > tickets. Every epic needs a project and every ticket needs an epic. Statuses: todo, in_progress, ready_for_review, done. A link's blocker_id blocks its blocked_id. Completed epics are hidden from the home overview, not deleted. Use get_workspace to discover IDs and links. Descriptions are plain text. Dependencies are informational and do not prevent moving tickets."})
+	s := mcp.NewServer(&mcp.Implementation{Name: "tinytickets", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "TinyTickets organizes projects > epics > tickets. Every epic needs a project and every ticket needs an epic. Statuses: todo, in_progress, ready_for_review, done. A link's blocker_id blocks its blocked_id. Completed epics are hidden from the home overview, not deleted. Use get_workspace to discover IDs and links. Descriptions accept Markdown, including fenced mermaid diagrams, rendered on full ticket pages. Dependencies are informational and do not prevent moving tickets."})
 	addTool(s, "get_workspace", "List all projects, epics (including completed), tickets, and directed dependency links.", func(ctx context.Context, _ struct{}) (State, error) { return a.Store.Snapshot(ctx) })
 	addTool(s, "create_project", "Create a project.", func(ctx context.Context, in struct {
 		Name string `json:"name" jsonschema:"Project name"`

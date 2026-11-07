@@ -9,9 +9,13 @@
     "test:e2e": "node e2e.mjs"
   },
   "dependencies": {
+    "dompurify": "^3.4.17",
     "lucide-react": "^0.468.0",
+    "mermaid": "^12.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

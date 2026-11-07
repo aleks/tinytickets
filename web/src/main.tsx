@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowLeft, ArrowUpRight, Check, CheckCheck, CheckCircle2, ChevronDown, Circle, CircleDot, Folder, FolderPlus, Home, Layers, Link2, LoaderCircle, Menu, Moon, MoreHorizontal, Plus, Search, Sun, Ticket as TicketIcon, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, CheckCheck, CheckCircle2, ChevronDown, Circle, CircleDot, Folder, FolderPlus, Home, Layers, Link2, LoaderCircle, Menu, Moon, MoreHorizontal, Pencil, Plus, Search, Sun, Ticket as TicketIcon, Trash2, X } from 'lucide-react'
 import './style.css'
+
+const MarkdownDescription = lazy(() => import('./MarkdownDescription').then(module => ({ default: module.MarkdownDescription })))
 
 type Project = { id: number; name: string }
 type Epic = { id: number; project_id: number; title: string; completed: boolean }
@@ -9,7 +11,7 @@ type Status = 'todo' | 'in_progress' | 'ready_for_review' | 'done'
 type Ticket = { id: number; epic_id: number; title: string; description: string; status: Status; created_at: string; updated_at: string }
 type Link = { blocker_id: number; blocked_id: number }
 type Workspace = { projects: Project[]; epics: Epic[]; tickets: Ticket[]; links: Link[] }
-type View = { type: 'home' } | { type: 'projects' } | { type: 'epics' } | { type: 'project'; id: number } | { type: 'epic'; id: number }
+type View = { type: 'home' } | { type: 'projects' } | { type: 'epics' } | { type: 'project'; id: number } | { type: 'epic'; id: number } | { type: 'ticket'; id: number }
 type Dialog = { type: 'project'; item?: Project } | { type: 'epic'; item?: Epic; projectId?: number } | { type: 'ticket'; item?: Ticket; epicId?: number; status?: Status }
 const columns: { status: Status; label: string; icon: typeof Circle }[] = [
   { status: 'todo', label: 'Todo', icon: Circle },
@@ -37,7 +39,7 @@ function initialView(): View {
   const path = location.hash.slice(1).split('/')
   if (path[0] === 'projects') return { type: 'projects' }
   if (path[0] === 'epics') return { type: 'epics' }
-  if ((path[0] === 'project' || path[0] === 'epic') && Number(path[1]) > 0) return { type: path[0], id: Number(path[1]) }
+  if ((path[0] === 'project' || path[0] === 'epic' || path[0] === 'ticket') && Number.isSafeInteger(Number(path[1])) && Number(path[1]) > 0) return { type: path[0], id: Number(path[1]) }
   return { type: 'home' }
 }
 
@@ -110,21 +112,25 @@ function App() {
 
   const currentProject = view.type === 'project' ? data.projects.find(p => p.id === view.id) : undefined
   const currentEpic = view.type === 'epic' ? data.epics.find(e => e.id === view.id) : undefined
-  const title = view.type === 'home' ? 'Overview' : view.type === 'projects' ? 'Projects' : view.type === 'epics' ? 'Epics' : currentProject?.name || currentEpic?.title || 'Not found'
+  const currentTicket = view.type === 'ticket' ? data.tickets.find(t => t.id === view.id) : undefined
+  const ticketEpic = currentTicket && data.epics.find(e => e.id === currentTicket.epic_id)
+  const title = view.type === 'home' ? 'Overview' : view.type === 'projects' ? 'Projects' : view.type === 'epics' ? 'Epics' : currentProject?.name || currentEpic?.title || currentTicket?.title || 'Not found'
   const visibleEpics = data.epics.filter(e => view.type === 'home' ? !e.completed : view.type === 'project' ? e.project_id === view.id : view.type === 'epic' ? e.id === view.id : true)
   const epicIDs = new Set(visibleEpics.map(e => e.id))
   const visibleTickets = data.tickets.filter(t => epicIDs.has(t.epic_id) && (!query || `${t.title} ${t.description} TT-${t.id}`.toLowerCase().includes(query.toLowerCase())))
   const filteredEpics = visibleEpics.filter(e => !query || `${e.title} ${data.projects.find(p => p.id === e.project_id)?.name}`.toLowerCase().includes(query.toLowerCase()))
   const boardView = view.type === 'home' || view.type === 'project' || view.type === 'epic'
-  const notFound = loaded && ((view.type === 'project' && !currentProject) || (view.type === 'epic' && !currentEpic))
+  const notFound = loaded && ((view.type === 'project' && !currentProject) || (view.type === 'epic' && !currentEpic) || (view.type === 'ticket' && !currentTicket))
   const activeCount = visibleEpics.filter(e => !e.completed).length
-  const epicProject = currentEpic && data.projects.find(p => p.id === currentEpic.project_id)
+  const parentEpic = currentEpic || ticketEpic
+  const epicProject = parentEpic && data.projects.find(p => p.id === parentEpic.project_id)
   const breadcrumbs: { label: string; view?: View }[] = [{ label: 'Workspace', view: { type: 'home' } }]
-  if (view.type === 'project' || view.type === 'epic') {
+  if (view.type === 'project' || view.type === 'epic' || view.type === 'ticket') {
     breadcrumbs.push({ label: 'Projects', view: { type: 'projects' } })
     const project = currentProject || epicProject
     if (project) breadcrumbs.push({ label: project.name, view: { type: 'project', id: project.id } })
-    if (currentEpic) breadcrumbs.push({ label: currentEpic.title, view: { type: 'epic', id: currentEpic.id } })
+    if (parentEpic) breadcrumbs.push({ label: parentEpic.title, view: { type: 'epic', id: parentEpic.id } })
+    if (currentTicket) breadcrumbs.push({ label: `TT-${currentTicket.id}`, view: { type: 'ticket', id: currentTicket.id } })
     if (!loaded || notFound) breadcrumbs.push({ label: loaded ? 'Not found' : 'Loading…' })
   } else {
     breadcrumbs.push({ label: title, view })
@@ -155,13 +161,13 @@ function App() {
       <header className="topbar"><div className="topbar-navigation"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><nav className="breadcrumb" aria-label="Breadcrumb"><ol>{breadcrumbs.map((crumb, index) => <li key={crumb.view ? viewHref(crumb.view) + index : 'missing'}>{index > 0 && <span className="slash" aria-hidden="true">/</span>}{crumb.view ? <a className="truncate" href={viewHref(crumb.view)} title={crumb.label} aria-current={index === breadcrumbs.length - 1 ? 'page' : undefined} onClick={e => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); navigate(crumb.view!) } }}>{crumb.label}</a> : <span className="truncate" aria-current="page">{crumb.label}</span>}</li>)}</ol></nav></div><span className="topbar-label"><span className="tiny-square" />Personal workspace</span></header>
       {error && <div className="error-banner" role="alert">{error}<button className="icon-button" aria-label="Dismiss error" onClick={() => setError('')}><X size={16} /></button></div>}
       <div className="page-content">
-        <div className="page-heading"><div><div className="eyebrow">{view.type === 'home' ? 'YOUR WORKSPACE' : view.type === 'epic' ? 'EPIC' : view.type === 'project' ? 'PROJECT' : 'WORKSPACE'}</div><h1>{title}{currentEpic?.completed && <span className="badge completed-badge"><Check size={12} />Completed</span>}</h1></div><div className="heading-actions">
+        <div className="page-heading"><div><div className="eyebrow">{currentTicket ? `TT-${currentTicket.id}` : view.type === 'home' ? 'YOUR WORKSPACE' : view.type === 'epic' ? 'EPIC' : view.type === 'project' ? 'PROJECT' : 'WORKSPACE'}</div><h1>{title}{currentEpic?.completed && <span className="badge completed-badge"><Check size={12} />Completed</span>}</h1></div><div className="heading-actions">
           {currentEpic && <><button className="button secondary" disabled={busy} onClick={() => complete(currentEpic)}><Check size={15} />{currentEpic.completed ? 'Reopen epic' : 'Complete epic'}</button><details className="more-menu"><summary className="icon-button" aria-label="Epic options"><MoreHorizontal size={19} /></summary><div className="dropdown"><button onClick={() => setDialog({ type: 'epic', item: currentEpic })}>Edit epic</button><button className="danger-text" onClick={() => remove('epics', currentEpic.id)}>Delete epic</button></div></details></>}
           {currentProject && <details className="more-menu"><summary className="icon-button" aria-label="Project options"><MoreHorizontal size={19} /></summary><div className="dropdown"><button onClick={() => setDialog({ type: 'project', item: currentProject })}>Edit project</button><button className="danger-text" onClick={() => remove('projects', currentProject.id)}>Delete project</button></div></details>}
-          {view.type === 'projects' ? <button className="button primary" onClick={() => setDialog({ type: 'project' })}><Plus size={16} />New project</button> : view.type === 'epics' ? <button className="button primary" onClick={() => setDialog(data.projects.length ? { type: 'epic' } : { type: 'project' })}><Plus size={16} />New epic</button> : !notFound && <button className="button primary" onClick={() => newTicket()}><Plus size={16} />New ticket</button>}
+          {currentTicket ? <button className="button primary" onClick={() => setDialog({ type: 'ticket', item: currentTicket })}><Pencil size={15} />Edit ticket</button> : view.type === 'projects' ? <button className="button primary" onClick={() => setDialog({ type: 'project' })}><Plus size={16} />New project</button> : view.type === 'epics' ? <button className="button primary" onClick={() => setDialog(data.projects.length ? { type: 'epic' } : { type: 'project' })}><Plus size={16} />New epic</button> : !notFound && view.type !== 'ticket' && <button className="button primary" onClick={() => newTicket()}><Plus size={16} />New ticket</button>}
         </div></div>
 
-        {!loaded ? <div className="loading"><LoaderCircle size={20} className="spin" />Loading workspace</div> : notFound ? <div className="empty-page"><Folder size={28} /><h2>Not found</h2><button className="button secondary" onClick={() => navigate({ type: 'home' })}><ArrowLeft size={14} />Back to overview</button></div> : <>
+        {!loaded ? <div className="loading"><LoaderCircle size={20} className="spin" />Loading workspace</div> : notFound ? <div className="empty-page"><Folder size={28} /><h2>Not found</h2><button className="button secondary" onClick={() => navigate({ type: 'home' })}><ArrowLeft size={14} />Back to overview</button></div> : currentTicket ? <TicketPage key={currentTicket.id} ticket={currentTicket} data={data} mutate={mutate} edit={() => setDialog({ type: 'ticket', item: currentTicket })} /> : <>
           {view.type === 'projects' ? <><div className="section-heading"><h2>All projects <span className="count">{data.projects.length}</span></h2><SearchField value={query} onChange={setQuery} placeholder="Find a project…" /></div><div className="project-grid">{data.projects.filter(p => p.name.toLowerCase().includes(query.toLowerCase())).map((p, i) => <button className="project-card" key={p.id} onClick={() => navigate({ type: 'project', id: p.id })}><div className={`project-icon color-${i % 5}`}><Folder size={21} /></div><h3>{p.name}</h3><span>{data.epics.filter(e => e.project_id === p.id).length} epics</span><ArrowUpRight size={16} className="card-arrow" /></button>)}<button className="add-project" onClick={() => setDialog({ type: 'project' })}><FolderPlus size={20} />New project</button></div></> : <>
             {view.type !== 'epic' && <section className="epics-section"><div className="section-heading"><h2><Layers size={17} />{view.type === 'epics' ? 'All epics' : view.type === 'home' ? 'Active epics' : 'Epics'}<span className="count">{visibleEpics.length}</span></h2>{view.type === 'epics' ? <SearchField value={query} onChange={setQuery} placeholder="Find an epic…" /> : <button className="text-button" onClick={() => setDialog(data.projects.length ? { type: 'epic', projectId: currentProject?.id } : { type: 'project' })}><Plus size={14} />New epic</button>}</div><div className="epic-grid">{filteredEpics.map(e => <EpicCard key={e.id} epic={e} data={data} onClick={() => navigate({ type: 'epic', id: e.id })} />)}{!visibleEpics.length && <button className="empty-epic" onClick={() => setDialog(data.projects.length ? { type: 'epic', projectId: currentProject?.id } : { type: 'project' })}><span className="empty-icon"><Layers size={21} /></span><span><strong>{view.type === 'home' && data.epics.length ? 'All epics completed' : 'No epics yet'}</strong><span>{data.projects.length ? 'Create an epic' : 'Create your first project'} <ArrowUpRight size={12} /></span></span><Plus size={18} /></button>}{query && visibleEpics.length > 0 && !filteredEpics.length && <p className="muted">No matching epics.</p>}</div></section>}
             {boardView && <section className="board-section"><div className="section-heading board-heading"><h2><TicketIcon size={17} />Tickets<span className="count">{visibleTickets.length}</span></h2><div className="board-tools"><SearchField value={query} onChange={setQuery} placeholder="Search tickets…" /><span className="board-view-label"><span className="board-symbol">▥</span>Board</span></div></div>
@@ -178,7 +184,7 @@ function App() {
         </>}
       </div>
     </main>
-    {dialog && <Editor key={`${dialog.type}-${dialog.item?.id || 'new'}`} dialog={dialog} data={data} mutate={mutate} close={() => setDialog(null)} openTicket={ticket => setDialog({ type: 'ticket', item: ticket })} />}
+    {dialog && <Editor key={`${dialog.type}-${dialog.item?.id || 'new'}`} dialog={dialog} data={data} mutate={mutate} close={() => setDialog(null)} openTicket={ticket => setDialog({ type: 'ticket', item: ticket })} openPage={ticket => { setDialog(null); navigate({ type: 'ticket', id: ticket.id }) }} />}
   </div>
 }
 
@@ -240,7 +246,40 @@ function TicketCard({ ticket, data, onClick, onDragEnd }: { ticket: Ticket; data
 }
 
 type Mutate = (path: string, method: string, body?: unknown) => Promise<unknown>
-function Editor({ dialog, data, mutate, close, openTicket }: { dialog: Dialog; data: Workspace; mutate: Mutate; close: () => void; openTicket: (t: Ticket) => void }) {
+function TicketPage({ ticket, data, mutate, edit }: { ticket: Ticket; data: Workspace; mutate: Mutate; edit: () => void }) {
+  const epic = data.epics.find(e => e.id === ticket.epic_id)
+  const project = data.projects.find(p => p.id === epic?.project_id)
+  const links = data.links.filter(l => l.blocker_id === ticket.id || l.blocked_id === ticket.id)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function update(body: Record<string, unknown>) {
+    setSaving(true); setError('')
+    try { await mutate(`tickets/${ticket.id}`, 'PATCH', body) } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
+  }
+
+  return <div className="ticket-page">
+    <article className="ticket-document" aria-label="Ticket description">
+      <div className="ticket-context">{project && <a href={viewHref({ type: 'project', id: project.id })}><Folder size={14} />{project.name}</a>}{epic && <a href={viewHref({ type: 'epic', id: epic.id })}><Layers size={14} />{epic.title}</a>}{epic?.completed && <span className="badge"><Check size={11} />Completed epic</span>}</div>
+      <div className="section-heading"><h2>Description</h2><button className="text-button" onClick={edit}><Pencil size={13} />Edit</button></div>
+      {ticket.description.trim() ? <Suspense fallback={<p className="muted" role="status">Loading description…</p>}><MarkdownDescription source={ticket.description} /></Suspense> : <button className="empty-description" onClick={edit}>Add a description…</button>}
+    </article>
+    <aside className="ticket-details" aria-label="Ticket details">
+      <h2>Details</h2>
+      {error && <div className="form-error" role="alert">{error}</div>}
+      <label className="field-label">Status<select aria-label="Status" value={ticket.status} disabled={saving} onChange={e => update({ status: e.target.value })}>{columns.map(c => <option key={c.status} value={c.status}>{c.label}</option>)}</select></label>
+      <label className="field-label">Epic<select aria-label="Epic" value={ticket.epic_id} disabled={saving} onChange={e => update({ epic_id: Number(e.target.value) })}>{data.epics.map(e => <option key={e.id} value={e.id}>{data.projects.find(p => p.id === e.project_id)?.name} / {e.title}{e.completed ? ' (completed)' : ''}</option>)}</select></label>
+      <dl className="ticket-metadata"><div><dt>Project</dt><dd>{project && <a href={viewHref({ type: 'project', id: project.id })}>{project.name}</a>}</dd></div><div><dt>Created</dt><dd><time dateTime={ticket.created_at} title={new Date(ticket.created_at).toLocaleString()}>{new Date(ticket.created_at).toLocaleDateString()}</time></dd></div><div><dt>Updated</dt><dd><time dateTime={ticket.updated_at} title={new Date(ticket.updated_at).toLocaleString()}>{new Date(ticket.updated_at).toLocaleString()}</time></dd></div></dl>
+      <section className="ticket-page-dependencies"><div className="section-heading"><h2><Link2 size={14} />Dependencies<span className="count">{links.length}</span></h2><button className="icon-button" aria-label="Edit dependencies" onClick={edit}><Plus size={14} /></button></div>{links.map(link => {
+        const blockedBy = link.blocked_id === ticket.id
+        const other = data.tickets.find(t => t.id === (blockedBy ? link.blocker_id : link.blocked_id))
+        return other && <a className="ticket-related" key={`${link.blocker_id}-${link.blocked_id}`} href={viewHref({ type: 'ticket', id: other.id })}><span className="dependency-type">{blockedBy ? 'Blocked by' : 'Blocks'}</span><span className="ticket-related-title"><span className="ticket-id">TT-{other.id}</span>{other.title}{other.status === 'done' && <Check size={12} />}</span></a>
+      })}{!links.length && <span className="muted">No dependencies</span>}</section>
+    </aside>
+  </div>
+}
+
+function Editor({ dialog, data, mutate, close, openTicket, openPage }: { dialog: Dialog; data: Workspace; mutate: Mutate; close: () => void; openTicket: (t: Ticket) => void; openPage: (t: Ticket) => void }) {
   const item = dialog.item
   const isTicket = dialog.type === 'ticket'
   const liveTicket = isTicket && item ? data.tickets.find(t => t.id === item.id) : undefined
@@ -266,7 +305,7 @@ function Editor({ dialog, data, mutate, close, openTicket }: { dialog: Dialog; d
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); closeRef.current() }
       if (e.key === 'Tab') {
-        const controls = modal.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input, textarea, select, [tabindex="0"]')
+        const controls = modal.current?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input, textarea, select, [tabindex="0"]')
         if (!controls?.length) return
         const first = controls[0], last = controls[controls.length - 1]
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
@@ -304,13 +343,13 @@ function Editor({ dialog, data, mutate, close, openTicket }: { dialog: Dialog; d
 
   return <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) requestClose() }}>
     <div className={`modal ${isTicket ? 'ticket-modal' : ''}`} ref={modal} role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-      <div className="modal-heading"><div className="modal-title-icon">{isTicket ? <TicketIcon size={18} /> : dialog.type === 'epic' ? <Layers size={18} /> : <Folder size={18} />}</div><h2 id="dialog-title">{item ? isTicket ? `TT-${item.id}` : `Edit ${dialog.type}` : `New ${dialog.type}`}</h2><button className="icon-button" disabled={saving} onClick={requestClose} aria-label="Close dialog"><X size={19} /></button></div>
+      <div className="modal-heading"><div className="modal-title-icon">{isTicket ? <TicketIcon size={18} /> : dialog.type === 'epic' ? <Layers size={18} /> : <Folder size={18} />}</div><h2 id="dialog-title">{liveTicket ? <a className="modal-ticket-link" href={viewHref({ type: 'ticket', id: liveTicket.id })} title="Open full ticket page" onClick={e => { if (saving) { e.preventDefault(); return }; if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); if (!changed || confirm('Discard unsaved changes?')) openPage(liveTicket) } }}><span className="ticket-id">TT-{liveTicket.id}</span><span className="truncate">{liveTicket.title}</span><ArrowUpRight size={14} /></a> : item ? isTicket ? `TT-${item.id}` : `Edit ${dialog.type}` : `New ${dialog.type}`}</h2><button className="icon-button" disabled={saving} onClick={requestClose} aria-label="Close dialog"><X size={19} /></button></div>
       <form onSubmit={submit}>
         <div className="modal-body">
           {error && <div className="form-error" role="alert">{error}</div>}
           {isTicket && item && !liveTicket && <div className="form-error" role="alert">This ticket was deleted in another session.</div>}
           <label className="field-label">{dialog.type === 'project' ? 'Name' : 'Title'}<input required maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder={isTicket ? 'What needs to be done?' : dialog.type === 'epic' ? 'Epic title' : 'Project name'} /></label>
-          {isTicket && <label className="field-label">Description<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" rows={6} maxLength={100000} /></label>}
+          {isTicket && <label className="field-label">Description<textarea aria-label="Description" aria-describedby="description-help" value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a description…" rows={6} maxLength={100000} /><span className="form-note" id="description-help">Markdown and fenced mermaid diagrams supported.</span></label>}
           {dialog.type === 'epic' && <><label className="field-label">Project<select required value={projectId} onChange={e => setProjectId(Number(e.target.value))}>{data.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label className="checkbox-label"><input type="checkbox" checked={completed} onChange={e => setCompleted(e.target.checked)} />Completed</label></>}
           {isTicket && <div className="field-row"><label className="field-label">Status<div className="select-wrap"><select value={status} onChange={e => setStatus(e.target.value as Status)}>{columns.map(c => <option key={c.status} value={c.status}>{c.label}</option>)}</select><ChevronDown size={14} /></div></label><label className="field-label">Epic<div className="select-wrap"><select required value={epicId} onChange={e => setEpicId(Number(e.target.value))}>{data.epics.map(e => <option key={e.id} value={e.id}>{data.projects.find(p => p.id === e.project_id)?.name} / {e.title}{e.completed ? ' (completed)' : ''}</option>)}</select><ChevronDown size={14} /></div></label></div>}
           {isTicket && item && <section className="dependencies"><h3><Link2 size={14} />Dependencies<span className="count">{links.length}</span></h3>{links.map(l => {

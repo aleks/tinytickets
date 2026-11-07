@@ -1,0 +1,2 @@
+# Review frontend source rather than generated/minified third-party bundles.
+web/dist/** -diff linguist-generated=true
