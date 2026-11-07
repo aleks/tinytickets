@@ -37,6 +37,20 @@ No sample projects or tickets are added to your database.
 
 ## MCP
 
+### OpenCode
+
+From this repository, build the binary and register it globally in OpenCode:
+
+```sh
+go build -o tinytickets .
+opencode mcp add tinytickets --global -- "$(pwd)/tinytickets" --mcp-stdio
+opencode mcp list
+```
+
+The list should show `tinytickets connected`. OpenCode starts the stdio process automatically; no running HTTP server is needed. Configuration reloads automatically (or use `/reload`). Omit `--global` to configure only the current project.
+
+This uses `~/.tinytickets/tinytickets.db`, the same database as `./tinytickets`. Append `--db /absolute/path/to/tickets.db` to the registration command to use another database. The configuration stores the binary's absolute path, so keep it there (and rebuild it after source changes), or register it again after moving it.
+
 ### Streamable HTTP
 
 Start TinyTickets normally, then connect your MCP client to:
