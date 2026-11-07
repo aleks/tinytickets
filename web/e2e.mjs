@@ -85,9 +85,41 @@ try {
   await page.locator('.column-done .ticket-card').filter({ hasText: 'Board is ready' }).waitFor()
   assert.equal(await page.locator('.blocked-badge').count(), 0)
 
+  // Accent preferences apply to the whole interface in both modes.
+  const colors = [
+    ['Sage', '#3c6957', '#658f75'], ['Slate', '#526c80', '#617e95'],
+    ['Lavender', '#786388', '#89729b'], ['Clay', '#916956', '#a17862'],
+    ['Sand', '#85713e', '#948049'],
+  ]
+  const chooseAccent = async label => {
+    await page.getByRole('button', { name: 'Choose accent color', exact: true }).click()
+    await page.getByRole('group', { name: 'Accent colors', exact: true }).getByRole('button', { name: label, exact: true }).click()
+    assert.equal(await page.locator('html').getAttribute('data-accent'), label.toLowerCase())
+  }
+  const accentValue = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())
+  for (const [label, light] of colors) { await chooseAccent(label); assert.equal(await accentValue(), light) }
   await page.getByRole('button', { name: 'Switch to dark mode' }).click()
+  for (const [label, , dark] of colors) { await chooseAccent(label); assert.equal(await accentValue(), dark) }
+  await chooseAccent('Lavender')
   await page.reload()
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark')
+  assert.equal(await page.locator('html').getAttribute('data-accent'), 'lavender')
+  await page.getByRole('button', { name: 'Switch to light mode' }).click()
+  assert.equal(await page.locator('html').getAttribute('data-accent'), 'lavender')
+  assert.equal(await accentValue(), '#786388')
+  await page.getByRole('button', { name: 'Choose accent color', exact: true }).click()
+  assert.equal(await page.getByRole('button', { name: 'Lavender', exact: true }).getAttribute('aria-pressed'), 'true')
+  assert.equal(await page.getByRole('button', { name: 'Lavender', exact: true }).evaluate(e => e === document.activeElement), true)
+  await page.keyboard.press('Escape')
+  assert.equal(await page.getByRole('button', { name: 'Choose accent color', exact: true }).getAttribute('aria-expanded'), 'false')
+  assert.equal(await page.getByRole('button', { name: 'Choose accent color', exact: true }).evaluate(e => e === document.activeElement), true)
+  await page.getByRole('button', { name: 'Choose accent color', exact: true }).click()
+  await page.getByRole('heading', { name: 'Overview', exact: true }).click()
+  assert.equal(await page.getByRole('group', { name: 'Accent colors', exact: true }).count(), 0)
+  // Ignore invalid persisted values and retain the original default palette.
+  await page.evaluate(() => localStorage.setItem('accent', 'unknown-color'))
+  await page.reload()
+  assert.equal(await page.locator('html').getAttribute('data-accent'), 'sage')
   await page.locator('.epic-card').click()
   await page.getByRole('button', { name: 'Complete epic', exact: true }).click()
   await page.getByRole('button', { name: /Overview/ }).click()
@@ -102,9 +134,27 @@ try {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
   await page.locator('.sidebar.open').waitFor()
-  await page.getByRole('button', { name: 'Close navigation', exact: true }).click()
+  await page.getByRole('button', { name: 'Choose accent color', exact: true }).click()
+  const paletteBounds = await page.getByRole('group', { name: 'Accent colors', exact: true }).boundingBox()
+  assert.ok(paletteBounds && paletteBounds.x >= 0 && paletteBounds.x + paletteBounds.width <= 390)
+  await page.getByRole('button', { name: 'Clay', exact: true }).click()
+  assert.equal(await page.locator('html').getAttribute('data-accent'), 'clay')
+  // Click the exposed backdrop, not its center underneath the open sidebar.
+  await page.getByRole('button', { name: 'Close navigation', exact: true }).click({ position: { x: 375, y: 100 } })
+  // Appearance changes still work if localStorage is blocked by the browser.
+  const privatePage = await browser.newPage()
+  privatePage.on('pageerror', err => errors.push(err.message))
+  await privatePage.addInitScript(() => {
+    Storage.prototype.getItem = () => { throw new Error('Storage unavailable') }
+    Storage.prototype.setItem = () => { throw new Error('Storage unavailable') }
+  })
+  await privatePage.goto(url)
+  await privatePage.getByRole('button', { name: 'Choose accent color', exact: true }).click()
+  await privatePage.getByRole('button', { name: 'Slate', exact: true }).click()
+  assert.equal(await privatePage.locator('html').getAttribute('data-accent'), 'slate')
+  await privatePage.close()
   assert.deepEqual(errors, [])
-  console.log('PASS: breadcrumbs, CRUD, dependencies, drag/drop, live updates, concurrent edits, themes, epic completion/reopen, mobile navigation')
+  console.log('PASS: breadcrumbs, CRUD, dependencies, drag/drop, live updates, concurrent edits, themes, persistent accents, epic completion/reopen, mobile navigation, blocked storage')
 } finally {
   await browser?.close()
   if (server.pid && server.exitCode === null && !server.killed) {

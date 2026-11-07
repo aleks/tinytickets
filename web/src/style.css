@@ -15,6 +15,14 @@
   --shadow: 0 1px 4px #0002; --danger: #ec9292; --input: #1a1e1b;
   color: var(--text); background: var(--bg);
 }
+:root[data-accent='slate'] { --accent: #526c80; --accent-hover: #425a6d; --accent-soft: #e4ebf0; --accent-text: #526c80 }
+:root[data-accent='lavender'] { --accent: #786388; --accent-hover: #665275; --accent-soft: #ede7f1; --accent-text: #786388 }
+:root[data-accent='clay'] { --accent: #916956; --accent-hover: #7b5847; --accent-soft: #f1e8e2; --accent-text: #916956 }
+:root[data-accent='sand'] { --accent: #85713e; --accent-hover: #705e32; --accent-soft: #eeeadd; --accent-text: #85713e }
+:root[data-theme='dark'][data-accent='slate'] { --accent: #617e95; --accent-hover: #728fa6; --accent-soft: #293640; --accent-text: #a1b8ca }
+:root[data-theme='dark'][data-accent='lavender'] { --accent: #89729b; --accent-hover: #9a83ab; --accent-soft: #382f40; --accent-text: #c2afd0 }
+:root[data-theme='dark'][data-accent='clay'] { --accent: #a17862; --accent-hover: #b18a74; --accent-soft: #403229; --accent-text: #d2b09a }
+:root[data-theme='dark'][data-accent='sand'] { --accent: #948049; --accent-hover: #a5915b; --accent-soft: #3b3626; --accent-text: #c9bb8a }
 * { box-sizing: border-box }
 body { margin: 0; font-size: 15px; line-height: 1.5 }
 button, input, select, textarea { font: inherit; color: inherit }
@@ -49,6 +57,16 @@ nav { padding: 0 10px; overflow-y: auto; flex: 1 }
 .completed-nav { opacity: .6 }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0 }
 .sidebar-footer { border-top: 1px solid var(--border); margin: 10px 14px 0; padding: 10px 0; display: flex; align-items: center; justify-content: space-between }
+.appearance-controls { display: flex; align-items: center; gap: 3px }
+.accent-picker { position: relative; display: flex }
+.accent-current { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: inset 0 0 0 1px #0001 }
+.accent-popover { position: absolute; bottom: calc(100% + 8px); right: -31px; width: 188px; padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); box-shadow: 0 4px 20px #0002; z-index: 1 }
+.accent-heading { display: block; margin-bottom: 6px; font-size: 11px; color: var(--secondary) }
+.accent-swatches { display: flex; justify-content: space-between; gap: 3px }
+.accent-swatch { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 3px; border-radius: 50%; border: 1px solid transparent }
+.accent-swatch:hover { background: var(--hover) }
+.accent-swatch[aria-pressed='true'] { border-color: var(--accent-text) }
+.accent-swatch > span { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; color: white }
 .connection { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 7px }
 .connection-dot { width: 5px; height: 5px; border-radius: 50%; background: #d1a65f }
 .connection-dot.online { background: #69987a; box-shadow: 0 0 0 3px #69987a12 }
