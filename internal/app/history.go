@@ -1,0 +1,122 @@
+package app
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+)
+
+type StatusEvent struct {
+	ID         int64   `json:"id"`
+	TicketID   int64   `json:"ticket_id"`
+	FromStatus *string `json:"from_status"`
+	ToStatus   string  `json:"to_status"`
+	ChangedAt  string  `json:"changed_at"`
+	Kind       string  `json:"kind"`
+}
+
+type TicketHistoryResult struct {
+	TicketID        int64         `json:"ticket_id"`
+	HistoryComplete bool          `json:"history_complete"`
+	Events          []StatusEvent `json:"events"`
+}
+
+func historyResult(id int64, events []StatusEvent) TicketHistoryResult {
+	return TicketHistoryResult{TicketID: id, HistoryComplete: len(events) > 0 && events[0].Kind == "created", Events: events}
+}
+
+// Database triggers cover REST, MCP, and older processes still using this file.
+// Migration and baseline capture are atomic; historical dates are never guessed.
+func migrateExecutionHistory(db *sql.DB) error {
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+		return err
+	}
+	defer conn.ExecContext(ctx, "ROLLBACK")
+	var version int
+	if err = conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return err
+	}
+	if version > 2 {
+		return fmt.Errorf("database schema version %d is newer than supported version 2", version)
+	}
+	if version < 2 {
+		_, err = conn.ExecContext(ctx, `
+			CREATE TABLE ticket_status_events (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+				from_status TEXT CHECK(from_status IN ('todo','in_progress','ready_for_review','done')),
+				to_status TEXT NOT NULL CHECK(to_status IN ('todo','in_progress','ready_for_review','done')),
+				changed_at TEXT NOT NULL,
+				kind TEXT NOT NULL CHECK(kind IN ('created','baseline','transition'))
+			);
+			CREATE INDEX status_events_ticket ON ticket_status_events(ticket_id, id);
+			INSERT INTO ticket_status_events(ticket_id, to_status, changed_at, kind)
+				SELECT id, status, strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'baseline' FROM tickets;
+			CREATE TRIGGER ticket_status_created AFTER INSERT ON tickets BEGIN
+				INSERT INTO ticket_status_events(ticket_id, to_status, changed_at, kind)
+				VALUES (NEW.id, NEW.status, NEW.created_at, 'created');
+			END;
+			CREATE TRIGGER ticket_status_changed AFTER UPDATE OF status ON tickets
+			WHEN NEW.status != OLD.status BEGIN
+				INSERT INTO ticket_status_events(ticket_id, from_status, to_status, changed_at, kind)
+				VALUES (NEW.id, OLD.status, NEW.status, strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'transition');
+			END;
+			PRAGMA user_version = 2;
+		`)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = conn.ExecContext(ctx, "COMMIT")
+	return err
+}
+
+func historyTx(ctx context.Context, tx *sql.Tx, ticketID, projectID int64) ([]StatusEvent, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT h.id, h.ticket_id, h.from_status, h.to_status, h.changed_at, h.kind
+		FROM ticket_status_events h JOIN tickets t ON t.id=h.ticket_id JOIN epics e ON e.id=t.epic_id
+		WHERE (?=0 OR t.id=?) AND (?=0 OR e.project_id=?) ORDER BY h.id`, ticketID, ticketID, projectID, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	events := []StatusEvent{}
+	for rows.Next() {
+		var e StatusEvent
+		if err := rows.Scan(&e.ID, &e.TicketID, &e.FromStatus, &e.ToStatus, &e.ChangedAt, &e.Kind); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
+func (s *Store) TicketHistory(ctx context.Context, id int64) ([]StatusEvent, error) {
+	if id <= 0 {
+		return nil, invalid("A positive ticket ID is required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var exists int
+	if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM tickets WHERE id=?", id).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if exists == 0 {
+		return nil, missing()
+	}
+	events, err := historyTx(ctx, tx, id, 0)
+	if err != nil {
+		return nil, err
+	}
+	return events, tx.Commit()
+}
