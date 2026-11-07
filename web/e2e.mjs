@@ -36,6 +36,7 @@ try {
   await page.locator('aside').getByRole('button', { name: 'New epic', exact: true }).click()
   await page.getByRole('dialog').getByLabel('Title', { exact: true }).fill('First release')
   await page.getByRole('button', { name: 'Create epic', exact: true }).click()
+  await page.locator('.nav-epic-project').filter({ hasText: /^TinyTickets$/ }).waitFor()
 
   await page.getByRole('button', { name: 'New ticket', exact: true }).click()
   await page.getByLabel('Title', { exact: true }).fill('Build the board')
