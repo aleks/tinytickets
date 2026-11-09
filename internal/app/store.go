@@ -29,14 +29,23 @@ type Epic struct {
 }
 
 type Ticket struct {
-	ID          int64  `json:"id"`
-	EpicID      int64  `json:"epic_id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID          int64   `json:"id"`
+	EpicID      int64   `json:"epic_id"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	Status      string  `json:"status"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
+	StatusSince *string `json:"status_since" jsonschema:"Known entry time into the current in_progress or ready_for_review column; null for todo, done, or unknown legacy timing"`
 }
+
+// Read the latest event, not updated_at or an earlier visit to the same column.
+// A migration baseline is an observation, never a known column-entry time.
+const ticketSelect = `SELECT t.id, t.epic_id, t.title, t.description, t.status, t.created_at, t.updated_at,
+	CASE WHEN t.status IN ('in_progress','ready_for_review') THEN (
+		SELECT CASE WHEN h.kind!='baseline' AND h.to_status=t.status THEN h.changed_at END
+		FROM ticket_status_events h WHERE h.ticket_id=t.id ORDER BY h.id DESC LIMIT 1
+	) END AS status_since FROM tickets t`
 
 // A link is directed: BlockerID blocks BlockedID.
 type Link struct {
@@ -177,9 +186,9 @@ func snapshotTx(ctx context.Context, tx *sql.Tx) (State, error) {
 			state.Epics = append(state.Epics, e)
 			return nil
 		}},
-		{"SELECT id, epic_id, title, description, status, created_at, updated_at FROM tickets ORDER BY id", func(r *sql.Rows) error {
+		{ticketSelect + " ORDER BY t.id", func(r *sql.Rows) error {
 			var t Ticket
-			if e := r.Scan(&t.ID, &t.EpicID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt); e != nil {
+			if e := r.Scan(&t.ID, &t.EpicID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt, &t.StatusSince); e != nil {
 				return e
 			}
 			state.Tickets = append(state.Tickets, t)
@@ -427,7 +436,7 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 			result = e
 		case "tickets":
 			var t Ticket
-			err = tx.QueryRowContext(ctx, "SELECT id, epic_id, title, description, status, created_at, updated_at FROM tickets WHERE id = ?", id).Scan(&t.ID, &t.EpicID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt)
+			err = tx.QueryRowContext(ctx, ticketSelect+" WHERE t.id = ?", id).Scan(&t.ID, &t.EpicID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt, &t.StatusSince)
 			result = t
 		}
 	}

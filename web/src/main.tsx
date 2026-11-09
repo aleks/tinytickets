@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Archive, ArchiveRestore, ArrowLeft, ArrowUpRight, Check, CheckCheck, CheckCircle2, ChevronDown, Circle, CircleDot, Folder, FolderPlus, Home, Layers, Link2, LoaderCircle, Menu, Moon, MoreHorizontal, Pencil, Plus, Search, Sun, Ticket as TicketIcon, Trash2, X } from 'lucide-react'
 import './style.css'
+import { TicketColumnTimer } from './TicketColumnTimer'
 
 const MarkdownDescription = lazy(() => import('./MarkdownDescription').then(module => ({ default: module.MarkdownDescription })))
 const ProjectProgress = lazy(() => import('./ProjectProgress').then(module => ({ default: module.ProjectProgress })))
@@ -9,7 +10,7 @@ const ProjectProgress = lazy(() => import('./ProjectProgress').then(module => ({
 type Project = { id: number; name: string }
 type Epic = { id: number; project_id: number; title: string; completed: boolean; archived: boolean }
 type Status = 'todo' | 'in_progress' | 'ready_for_review' | 'done'
-type Ticket = { id: number; epic_id: number; title: string; description: string; status: Status; created_at: string; updated_at: string }
+type Ticket = { id: number; epic_id: number; title: string; description: string; status: Status; created_at: string; updated_at: string; status_since: string | null }
 type Link = { blocker_id: number; blocked_id: number }
 type Workspace = { projects: Project[]; epics: Epic[]; tickets: Ticket[]; links: Link[] }
 type View = { type: 'home' } | { type: 'projects' } | { type: 'epics' } | { type: 'project'; id: number; tab?: 'progress' } | { type: 'epic'; id: number } | { type: 'ticket'; id: number }
@@ -259,7 +260,7 @@ function TicketCard({ ticket, data, onClick, onDragEnd }: { ticket: Ticket; data
   const blockers = data.links.filter(l => l.blocked_id === ticket.id && data.tickets.find(t => t.id === l.blocker_id)?.status !== 'done')
   const links = data.links.filter(l => l.blocked_id === ticket.id || l.blocker_id === ticket.id)
   return <button className="ticket-card" draggable onDragStart={e => { e.dataTransfer.setData('application/x-tinyticket', String(ticket.id)); e.dataTransfer.effectAllowed = 'move' }} onDragEnd={onDragEnd} onClick={onClick}>
-    <div className="ticket-card-top"><span className="ticket-id">TT-{ticket.id}</span>{blockers.length > 0 && <span className="blocked-badge"><CircleDot size={10} />Blocked</span>}</div>
+    <div className="ticket-card-top"><span className="ticket-id">TT-{ticket.id}</span><span className="ticket-card-indicators">{blockers.length > 0 && <span className="blocked-badge"><CircleDot size={10} />Blocked</span>}<TicketColumnTimer status={ticket.status} since={ticket.status_since} /></span></div>
     <h4>{ticket.title}</h4>{ticket.description && <p className="ticket-excerpt">{ticket.description}</p>}
     <div className="ticket-card-bottom"><span className={`epic-label color-${projectIndex % 5}`}><Layers size={11} /><span className="truncate">{epic?.title}</span></span>{links.length > 0 && <span className="link-count" title={`${links.length} dependencies`}><Link2 size={12} />{links.length}</span>}</div>
   </button>
