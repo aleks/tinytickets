@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { testExecutionInsights } from './execution.e2e.mjs'
+import { testProjectEpicOrdering } from './epic-ordering.e2e.mjs'
 
 // Build the binary first. Tests launch an isolated server with an empty database.
 const dir = await mkdtemp(join(tmpdir(), 'tinytickets-e2e-'))
@@ -280,6 +281,7 @@ try {
   await page.getByRole('heading', { name: 'Not found', exact: true }).first().waitFor()
   await page.setViewportSize({ width: 1440, height: 1000 })
   await testExecutionInsights(page, url)
+  await testProjectEpicOrdering(page, url)
   // Appearance changes still work if localStorage is blocked by the browser.
   const privatePage = await browser.newPage()
   privatePage.on('pageerror', err => errors.push(err.message))
@@ -293,7 +295,7 @@ try {
   assert.equal(await privatePage.locator('html').getAttribute('data-accent'), 'slate')
   await privatePage.close()
   assert.deepEqual(errors, [])
-  console.log('PASS: execution history/progress/timeline/metrics, full ticket pages, safe Markdown/Mermaid, CRUD, live updates, themes, persistent accents, mobile layout, blocked storage')
+  console.log('PASS: project epic ordering, execution history/progress/timeline/metrics, full ticket pages, safe Markdown/Mermaid, CRUD, live updates, themes, persistent accents, mobile layout, blocked storage')
 } finally {
   await browser?.close()
   if (server.pid && server.exitCode === null && !server.killed) {

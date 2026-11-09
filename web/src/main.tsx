@@ -121,6 +121,9 @@ function App() {
   const epicIDs = new Set(visibleEpics.map(e => e.id))
   const visibleTickets = data.tickets.filter(t => epicIDs.has(t.epic_id) && (!query || `${t.title} ${t.description} TT-${t.id}`.toLowerCase().includes(query.toLowerCase())))
   const filteredEpics = visibleEpics.filter(e => !query || `${e.title} ${data.projects.find(p => p.id === e.project_id)?.name}`.toLowerCase().includes(query.toLowerCase()))
+  // IDs are monotonically increasing creation order. Sort only the project
+  // cards, leaving navigation, other views, and new-ticket defaults unchanged.
+  if (view.type === 'project') filteredEpics.sort((a, b) => Number(a.completed) - Number(b.completed) || b.id - a.id)
   const boardView = view.type === 'home' || view.type === 'project' || view.type === 'epic'
   const notFound = loaded && ((view.type === 'project' && !currentProject) || (view.type === 'epic' && !currentEpic) || (view.type === 'ticket' && !currentTicket))
   const activeCount = visibleEpics.filter(e => !e.completed).length
