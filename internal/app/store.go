@@ -124,9 +124,12 @@ func Open(path string) (*Store, error) {
 		CREATE INDEX IF NOT EXISTS epics_project ON epics(project_id);
 		CREATE INDEX IF NOT EXISTS tickets_epic ON tickets(epic_id);
 		CREATE INDEX IF NOT EXISTS links_blocked ON links(blocked_id);
-		PRAGMA user_version = 1;
 	`)
 	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := migrateExecutionHistory(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -138,12 +141,20 @@ func (s *Store) Close() error { return s.db.Close() }
 func (s *Store) Snapshot(ctx context.Context) (State, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	state := State{Projects: []Project{}, Epics: []Epic{}, Tickets: []Ticket{}, Links: []Link{}}
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return State{}, err
+	}
+	defer tx.Rollback()
+	state, err := snapshotTx(ctx, tx)
 	if err != nil {
 		return state, err
 	}
-	defer tx.Rollback()
+	return state, tx.Commit()
+}
+
+func snapshotTx(ctx context.Context, tx *sql.Tx) (State, error) {
+	state := State{Projects: []Project{}, Epics: []Epic{}, Tickets: []Ticket{}, Links: []Link{}}
 	queries := []struct {
 		sql  string
 		scan func(*sql.Rows) error
@@ -198,7 +209,7 @@ func (s *Store) Snapshot(ctx context.Context) (State, error) {
 			return state, err
 		}
 	}
-	return state, tx.Commit()
+	return state, nil
 }
 
 func validTitle(p *string, required bool) error {

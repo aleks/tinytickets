@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpRight, Check, CheckCheck, CheckCircle2, ChevronDown, 
 import './style.css'
 
 const MarkdownDescription = lazy(() => import('./MarkdownDescription').then(module => ({ default: module.MarkdownDescription })))
+const ProjectProgress = lazy(() => import('./ProjectProgress').then(module => ({ default: module.ProjectProgress })))
 
 type Project = { id: number; name: string }
 type Epic = { id: number; project_id: number; title: string; completed: boolean }
@@ -11,7 +12,7 @@ type Status = 'todo' | 'in_progress' | 'ready_for_review' | 'done'
 type Ticket = { id: number; epic_id: number; title: string; description: string; status: Status; created_at: string; updated_at: string }
 type Link = { blocker_id: number; blocked_id: number }
 type Workspace = { projects: Project[]; epics: Epic[]; tickets: Ticket[]; links: Link[] }
-type View = { type: 'home' } | { type: 'projects' } | { type: 'epics' } | { type: 'project'; id: number } | { type: 'epic'; id: number } | { type: 'ticket'; id: number }
+type View = { type: 'home' } | { type: 'projects' } | { type: 'epics' } | { type: 'project'; id: number; tab?: 'progress' } | { type: 'epic'; id: number } | { type: 'ticket'; id: number }
 type Dialog = { type: 'project'; item?: Project } | { type: 'epic'; item?: Epic; projectId?: number } | { type: 'ticket'; item?: Ticket; epicId?: number; status?: Status }
 const columns: { status: Status; label: string; icon: typeof Circle }[] = [
   { status: 'todo', label: 'Todo', icon: Circle },
@@ -39,12 +40,13 @@ function initialView(): View {
   const path = location.hash.slice(1).split('/')
   if (path[0] === 'projects') return { type: 'projects' }
   if (path[0] === 'epics') return { type: 'epics' }
+  if (path[0] === 'project' && path[2] === 'progress' && Number.isSafeInteger(Number(path[1])) && Number(path[1]) > 0) return { type: 'project', id: Number(path[1]), tab: 'progress' }
   if ((path[0] === 'project' || path[0] === 'epic' || path[0] === 'ticket') && Number.isSafeInteger(Number(path[1])) && Number(path[1]) > 0) return { type: path[0], id: Number(path[1]) }
   return { type: 'home' }
 }
 
 function viewHref(view: View): string {
-  return `#${view.type === 'home' ? '' : 'id' in view ? `${view.type}/${view.id}` : view.type}`
+  return `#${view.type === 'home' ? '' : 'id' in view ? `${view.type}/${view.id}${view.type === 'project' && view.tab === 'progress' ? '/progress' : ''}` : view.type}`
 }
 
 function App() {
@@ -131,6 +133,7 @@ function App() {
     if (project) breadcrumbs.push({ label: project.name, view: { type: 'project', id: project.id } })
     if (parentEpic) breadcrumbs.push({ label: parentEpic.title, view: { type: 'epic', id: parentEpic.id } })
     if (currentTicket) breadcrumbs.push({ label: `TT-${currentTicket.id}`, view: { type: 'ticket', id: currentTicket.id } })
+    if (view.type === 'project' && view.tab === 'progress' && currentProject) breadcrumbs.push({ label: 'Progress', view })
     if (!loaded || notFound) breadcrumbs.push({ label: loaded ? 'Not found' : 'Loading…' })
   } else {
     breadcrumbs.push({ label: title, view })
@@ -166,8 +169,9 @@ function App() {
           {currentProject && <details className="more-menu"><summary className="icon-button" aria-label="Project options"><MoreHorizontal size={19} /></summary><div className="dropdown"><button onClick={() => setDialog({ type: 'project', item: currentProject })}>Edit project</button><button className="danger-text" onClick={() => remove('projects', currentProject.id)}>Delete project</button></div></details>}
           {currentTicket ? <button className="button primary" onClick={() => setDialog({ type: 'ticket', item: currentTicket })}><Pencil size={15} />Edit ticket</button> : view.type === 'projects' ? <button className="button primary" onClick={() => setDialog({ type: 'project' })}><Plus size={16} />New project</button> : view.type === 'epics' ? <button className="button primary" onClick={() => setDialog(data.projects.length ? { type: 'epic' } : { type: 'project' })}><Plus size={16} />New epic</button> : !notFound && view.type !== 'ticket' && <button className="button primary" onClick={() => newTicket()}><Plus size={16} />New ticket</button>}
         </div></div>
+        {currentProject && <nav className="project-tabs" aria-label="Project views"><a href={viewHref({ type: 'project', id: currentProject.id })} aria-current={view.type === 'project' && view.tab !== 'progress' ? 'page' : undefined}>Board</a><a href={viewHref({ type: 'project', id: currentProject.id, tab: 'progress' })} aria-current={view.type === 'project' && view.tab === 'progress' ? 'page' : undefined}>Progress</a></nav>}
 
-        {!loaded ? <div className="loading"><LoaderCircle size={20} className="spin" />Loading workspace</div> : notFound ? <div className="empty-page"><Folder size={28} /><h2>Not found</h2><button className="button secondary" onClick={() => navigate({ type: 'home' })}><ArrowLeft size={14} />Back to overview</button></div> : currentTicket ? <TicketPage key={currentTicket.id} ticket={currentTicket} data={data} mutate={mutate} edit={() => setDialog({ type: 'ticket', item: currentTicket })} /> : <>
+        {!loaded ? <div className="loading"><LoaderCircle size={20} className="spin" />Loading workspace</div> : notFound ? <div className="empty-page"><Folder size={28} /><h2>Not found</h2><button className="button secondary" onClick={() => navigate({ type: 'home' })}><ArrowLeft size={14} />Back to overview</button></div> : currentTicket ? <TicketPage key={currentTicket.id} ticket={currentTicket} data={data} mutate={mutate} edit={() => setDialog({ type: 'ticket', item: currentTicket })} /> : currentProject && view.type === 'project' && view.tab === 'progress' ? <Suspense fallback={<div className="loading"><LoaderCircle size={18} className="spin" />Loading progress</div>}><ProjectProgress key={currentProject.id} projectID={currentProject.id} revision={data} /></Suspense> : <>
           {view.type === 'projects' ? <><div className="section-heading"><h2>All projects <span className="count">{data.projects.length}</span></h2><SearchField value={query} onChange={setQuery} placeholder="Find a project…" /></div><div className="project-grid">{data.projects.filter(p => p.name.toLowerCase().includes(query.toLowerCase())).map((p, i) => <button className="project-card" key={p.id} onClick={() => navigate({ type: 'project', id: p.id })}><div className={`project-icon color-${i % 5}`}><Folder size={21} /></div><h3>{p.name}</h3><span>{data.epics.filter(e => e.project_id === p.id).length} epics</span><ArrowUpRight size={16} className="card-arrow" /></button>)}<button className="add-project" onClick={() => setDialog({ type: 'project' })}><FolderPlus size={20} />New project</button></div></> : <>
             {view.type !== 'epic' && <section className="epics-section"><div className="section-heading"><h2><Layers size={17} />{view.type === 'epics' ? 'All epics' : view.type === 'home' ? 'Active epics' : 'Epics'}<span className="count">{visibleEpics.length}</span></h2>{view.type === 'epics' ? <SearchField value={query} onChange={setQuery} placeholder="Find an epic…" /> : <button className="text-button" onClick={() => setDialog(data.projects.length ? { type: 'epic', projectId: currentProject?.id } : { type: 'project' })}><Plus size={14} />New epic</button>}</div><div className="epic-grid">{filteredEpics.map(e => <EpicCard key={e.id} epic={e} data={data} onClick={() => navigate({ type: 'epic', id: e.id })} />)}{!visibleEpics.length && <button className="empty-epic" onClick={() => setDialog(data.projects.length ? { type: 'epic', projectId: currentProject?.id } : { type: 'project' })}><span className="empty-icon"><Layers size={21} /></span><span><strong>{view.type === 'home' && data.epics.length ? 'All epics completed' : 'No epics yet'}</strong><span>{data.projects.length ? 'Create an epic' : 'Create your first project'} <ArrowUpRight size={12} /></span></span><Plus size={18} /></button>}{query && visibleEpics.length > 0 && !filteredEpics.length && <p className="muted">No matching epics.</p>}</div></section>}
             {boardView && <section className="board-section"><div className="section-heading board-heading"><h2><TicketIcon size={17} />Tickets<span className="count">{visibleTickets.length}</span></h2><div className="board-tools"><SearchField value={query} onChange={setQuery} placeholder="Search tickets…" /><span className="board-view-label"><span className="board-symbol">▥</span>Board</span></div></div>

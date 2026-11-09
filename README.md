@@ -38,6 +38,29 @@ The database defaults to `~/.tinytickets/tinytickets.db`. Parent directories are
 
 No sample projects or tickets are added to your database.
 
+## Execution insights
+
+Open a project and choose **Progress** next to **Board**, or link directly to `/#project/{id}/progress`. This is a record of actual execution, not a schedule: there are no start/due-date inputs, estimates, or extra agent bookkeeping.
+
+- Expand/collapse epics to see their tickets on a status-colored timeline. In-progress, review, returned-to-todo, and done intervals are distinct, including repeated reviews and reopenings. Ongoing intervals extend to now. Epic spans derive from observed ticket intervals, not when the epic was manually marked completed.
+- Choose all recorded history or a recent hour/day/week/month window. Range selection affects the timeline only; summary metrics cover all current project tickets. Timeline timestamps use local time, with seconds/milliseconds for short agent runs. Completed epics can be hidden from the timeline and untimed lists without changing the project totals.
+- New todo tickets appear under **Not started**. Legacy tickets without observed execution appear under **Timing unavailable**, not at fabricated dates. Partial observed timelines are explicitly labeled.
+- Metrics show completed/total tickets, active tickets (in progress or review), unfinished blocked tickets (including cross-project blockers), median completion time, summed observed in-progress/review time, and the oldest active ticket with a known start. Completion is ticket-count based, not a measure of effort. Explicit epic completion flags are independent of ticket completion counts.
+
+### History and metric definitions
+
+The first launch of this version atomically upgrades the SQLite database to schema version 2. Existing tickets receive a **baseline** of their current status at migration time; their earlier history is unavailable. Neither `created_at` nor `updated_at` is used to guess a historical start or completion. Subsequent observed intervals remain useful, but baseline tickets never enter start-dependent completion/age samples.
+
+SQLite triggers record each new ticket's initial status and every actual status change in the same transaction as the write. REST, MCP, UI, and even already-running older processes using the database are covered. No-op status updates and title/description edits do not add events. Tickets created directly in review/done have no known in-progress start. History is read-only through the API/MCP.
+
+- **Median completion time:** first recorded in-progress timestamp → latest recorded done timestamp for *currently done* tickets with full history and a known start. It includes pauses, repeated reviews, and closed intervals before reopening. Reopened unfinished tickets leave the sample until completed again. Sample counts are shown; unavailable values stay `null`/`—`, not zero.
+- **Observed work/review:** sum of recorded time in `in_progress` / `ready_for_review`, including partial intervals observed after a legacy baseline. Parallel tickets overlap, so this is neither agent effort nor project wall-clock duration.
+- **Oldest active ticket:** lifecycle age from first known in-progress timestamp to now, among currently in-progress/review tickets with full history. Closed/reopened gaps are included; unknown starts are excluded and coverage is shown.
+- **Recorded completions:** each ticket counts once at its **first observed** creation/transition into done, even if later reopened. A baseline in done does not count. Daily buckets cover 28 UTC days; weekly buckets cover 12 UTC weeks starting Monday, including the current day/week. Zeros mean no *recorded* completions, not proof that no older work occurred. Counts can differ from the current done total.
+- Reports include all tickets/epics currently in the project, including completed epics. Moving a ticket/epic carries its execution history into the new project; this is current-membership reporting, not historical project attribution. Deleting a ticket deletes its history and removes it from reports; this is not a permanent audit log.
+
+Reports use a consistent database snapshot and refresh through the same live-update/polling mechanism as the board. Ordinary status changes continue to be the only action agents need to take.
+
 ## MCP
 
 ### OpenCode
@@ -97,6 +120,8 @@ The official Go MCP SDK supplies protocol negotiation, tool schemas, validation,
 | Tool | Purpose |
 | --- | --- |
 | `get_workspace` | All projects, epics, tickets, and links, including completed work |
+| `get_ticket_history` | Ordered creation/baseline/status events for `ticket_id`, with a `history_complete` flag |
+| `get_project_execution` | Execution segments, project/epic/ticket metrics, coverage, and UTC completion buckets for `project_id` |
 | `create_project`, `update_project`, `delete_project` | Manage projects |
 | `create_epic`, `update_epic`, `delete_epic` | Manage epics; set `completed: true` to archive from overview |
 | `create_ticket`, `update_ticket`, `delete_ticket` | Manage tickets and change status |
@@ -111,6 +136,8 @@ All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error":
 | Method | Endpoint | Body / filters |
 | --- | --- | --- |
 | GET | `/api/state` | Full workspace snapshot |
+| GET | `/api/tickets/{id}/history` | `{ "ticket_id": 1, "history_complete": true, "events": [...] }`; events contain `id`, `ticket_id`, `from_status`, `to_status`, `changed_at`, `kind` (`created`, `baseline`, `transition`) |
+| GET | `/api/projects/{id}/execution` | Project, `generated_at`, aggregate `metrics`, epic/ticket execution details, and `daily_completions`/`weekly_completions`; durations are seconds, unknown start-dependent values are `null` |
 | GET / POST | `/api/projects` | Create: `{ "name": "Website" }` |
 | GET / PATCH / DELETE | `/api/projects/{id}` | Update: `{ "name": "New name" }` |
 | GET / POST | `/api/epics` | Create: `{ "project_id": 1, "title": "Launch" }`; GET filters: `project_id`, `completed=true\|false` |
@@ -146,4 +173,4 @@ npm --prefix web run test:e2e # isolated browser smoke test against the built bi
 
 For hot reload, run `go run .` in one terminal and `make dev` in another. Open `http://127.0.0.1:5173`; Vite proxies `/api` and `/mcp` to port 8080. Rebuild `web/dist` with `make web` before building or committing frontend changes. Do not rebuild the frontend concurrently with a Go build/test: embedding reads those files during compilation.
 
-Tests cover persistence, hierarchy validation, status transitions, dependency cycles, deletion rules, REST filtering, origin checks, SSE notifications, and a real MCP client/server round trip over HTTP. The browser smoke test checks creation, dependencies, drag/drop, live updates, concurrent edits, themes, epic completion/reopening, and mobile navigation with a temporary database.
+Tests cover persistence, hierarchy validation, status transitions, dependency cycles, deletion rules, REST filtering, origin checks, SSE notifications, and real MCP client/server round trips. Execution tests cover legacy migrations, atomic/no-op/external writes, reopen/review durations, missing starts, UTC bucket boundaries, and project attribution. The browser suite checks execution metrics/timelines and existing ticket/board workflows, themes, and mobile navigation with a temporary database.

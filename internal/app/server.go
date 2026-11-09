@@ -80,6 +80,30 @@ func (a *App) Handler(assets fs.FS) http.Handler {
 		respond(w, state, err, 200)
 	})
 	mux.HandleFunc("GET /api/events", a.events)
+	mux.HandleFunc("/api/tickets/{id}/history", func(w http.ResponseWriter, r *http.Request) {
+		if !readOnly(w, r) {
+			return
+		}
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id <= 0 {
+			respond(w, nil, invalid("Invalid ID"), 0)
+			return
+		}
+		events, err := a.Store.TicketHistory(r.Context(), id)
+		respond(w, historyResult(id, events), err, 200)
+	})
+	mux.HandleFunc("/api/projects/{id}/execution", func(w http.ResponseWriter, r *http.Request) {
+		if !readOnly(w, r) {
+			return
+		}
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id <= 0 {
+			respond(w, nil, invalid("Invalid ID"), 0)
+			return
+		}
+		report, err := a.Store.ProjectExecution(r.Context(), id)
+		respond(w, report, err, 200)
+	})
 	mux.HandleFunc("/api/{kind}", a.collection)
 	mux.HandleFunc("/api/{kind}/{id}", a.item)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return a.MCP }, &mcp.StreamableHTTPOptions{Stateless: true}))
@@ -134,6 +158,15 @@ func (a *App) Handler(assets fs.FS) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+func readOnly(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method == http.MethodGet {
+		return true
+	}
+	w.Header().Set("Allow", "GET")
+	respond(w, nil, &APIError{405, "Method not allowed"}, 0)
+	return false
 }
 
 func respond(w http.ResponseWriter, data any, err error, success int) {
