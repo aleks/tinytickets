@@ -32,6 +32,8 @@ The database defaults to `~/.tinytickets/tinytickets.db`. Parent directories are
 - Drag tickets between columns, or change status in the ticket editor (also works with keyboard/touch).
 - Links express **blocks / blocked by**. The two labels describe the same directed link. Self-links and dependency cycles are rejected. Unfinished blockers are flagged on cards; they do not prevent moving a ticket.
 - The overview shows active epics and their tickets. Completing an epic hides it **and its tickets** from the overview without deleting anything. Completed epics remain in the sidebar, all-epics page, and project pages, and can be reopened.
+- Completed epics can additionally be **archived**. Archived epics and their tickets disappear from ordinary sidebar/project/board listings, epic assignment options, and project timeline rows. The **Epics** page separates active/completed epics from an **Archived epics** section with unarchive controls. Search covers both sections. Archive controls are also available on completed epic pages and in the epic editor.
+- Archiving preserves tickets, links, status history, and direct epic/ticket URLs. Direct pages clearly show archive state and allow restoration; existing tickets remain editable. A current archived parent is retained as a disabled selection when editing its ticket, not offered as a new assignment. Only completed epics can be archived, and an epic must be unarchived before reopening; unarchive preserves its completed state. An atomic `{"archived":false,"completed":false}` update can restore and reopen together. The database also enforces this invariant for older/direct writers.
 - Projects and epics can only be deleted when empty. Ticket deletion removes its links.
 - Light/dark mode initially follows your system preference; the toggle saves an explicit choice locally.
 - The color picker beside the theme toggle offers five muted accents: Sage (default), Slate, Lavender, Clay, and Sand. In dark mode, backgrounds, borders, and text neutrals also follow the selected palette. The choice applies in both modes and is saved locally alongside your theme preference.
@@ -46,11 +48,12 @@ Open a project and choose **Progress** next to **Board**, or link directly to `/
 - Expand/collapse epics to see their tickets on a status-colored timeline. In-progress, review, returned-to-todo, and done intervals are distinct, including repeated reviews and reopenings. Ongoing intervals extend to now. Epic spans derive from observed ticket intervals, not when the epic was manually marked completed.
 - Choose all recorded history or a recent hour/day/week/month window. Range selection affects the timeline only; summary metrics cover all current project tickets. Timeline timestamps use local time, with seconds/milliseconds for short agent runs. Completed epics can be hidden from the timeline and untimed lists without changing the project totals.
 - New todo tickets appear under **Not started**. Legacy tickets without observed execution appear under **Timing unavailable**, not at fabricated dates. Partial observed timelines are explicitly labeled.
+- Archived epics are excluded from timeline/untimed rows, but remain in all aggregate metrics, sample coverage, epic counts, and recorded completions. An archive count/note makes this explicit; restore an epic from the Epics page to see its rows again.
 - Metrics show completed/total tickets, active tickets (in progress or review), unfinished blocked tickets (including cross-project blockers), median completion time, summed observed in-progress/review time, and the oldest active ticket with a known start. Completion is ticket-count based, not a measure of effort. Explicit epic completion flags are independent of ticket completion counts.
 
 ### History and metric definitions
 
-The first launch of this version atomically upgrades the SQLite database to schema version 2. Existing tickets receive a **baseline** of their current status at migration time; their earlier history is unavailable. Neither `created_at` nor `updated_at` is used to guess a historical start or completion. Subsequent observed intervals remain useful, but baseline tickets never enter start-dependent completion/age samples.
+Execution history was introduced in schema version 2; this version atomically upgrades the database to version 3 to add reversible epic archiving. Existing epics default to unarchived, and existing ticket history is preserved. Tickets predating execution-history tracking receive a **baseline** of their current status at migration time; their earlier history is unavailable. Neither `created_at` nor `updated_at` is used to guess a historical start or completion. Subsequent observed intervals remain useful, but baseline tickets never enter start-dependent completion/age samples.
 
 SQLite triggers record each new ticket's initial status and every actual status change in the same transaction as the write. REST, MCP, UI, and even already-running older processes using the database are covered. No-op status updates and title/description edits do not add events. Tickets created directly in review/done have no known in-progress start. History is read-only through the API/MCP.
 
@@ -58,7 +61,7 @@ SQLite triggers record each new ticket's initial status and every actual status 
 - **Observed work/review:** sum of recorded time in `in_progress` / `ready_for_review`, including partial intervals observed after a legacy baseline. Parallel tickets overlap, so this is neither agent effort nor project wall-clock duration.
 - **Oldest active ticket:** lifecycle age from first known in-progress timestamp to now, among currently in-progress/review tickets with full history. Closed/reopened gaps are included; unknown starts are excluded and coverage is shown.
 - **Recorded completions:** each ticket counts once at its **first observed** creation/transition into done, even if later reopened. A baseline in done does not count. Daily buckets cover 28 UTC days; weekly buckets cover 12 UTC weeks starting Monday, including the current day/week. Zeros mean no *recorded* completions, not proof that no older work occurred. Counts can differ from the current done total.
-- Reports include all tickets/epics currently in the project, including completed epics. Moving a ticket/epic carries its execution history into the new project; this is current-membership reporting, not historical project attribution. Deleting a ticket deletes its history and removes it from reports; this is not a permanent audit log.
+- Aggregate reports include all tickets/epics currently in the project, including completed/archived epics. The `epics` detail rows exclude archived epics; `epics_total`, `epics_completed`, `epics_archived`, metrics, and completion buckets still include them. Moving a ticket/epic carries its execution history into the new project; this is current-membership reporting, not historical project attribution. Deleting a ticket deletes its history and removes it from reports; this is not a permanent audit log.
 
 Reports use a consistent database snapshot and refresh through the same live-update/polling mechanism as the board. Ordinary status changes continue to be the only action agents need to take.
 
@@ -120,11 +123,11 @@ The official Go MCP SDK supplies protocol negotiation, tool schemas, validation,
 
 | Tool | Purpose |
 | --- | --- |
-| `get_workspace` | All projects, epics, tickets, and links, including completed work |
+| `get_workspace` | Complete, hierarchy-consistent snapshot including completed/archived epics and their tickets/links; inspect `archived` flags when making ordinary listings |
 | `get_ticket_history` | Ordered creation/baseline/status events for `ticket_id`, with a `history_complete` flag |
 | `get_project_execution` | Execution segments, project/epic/ticket metrics, coverage, and UTC completion buckets for `project_id` |
 | `create_project`, `update_project`, `delete_project` | Manage projects |
-| `create_epic`, `update_epic`, `delete_epic` | Manage epics; set `completed: true` to archive from overview |
+| `create_epic`, `update_epic`, `delete_epic` | Manage epics; `completed: true` removes them from home; `archived: true` hides completed epics from ordinary listings; `archived: false` restores them |
 | `create_ticket`, `update_ticket`, `delete_ticket` | Manage tickets and change status |
 | `link_tickets`, `unlink_tickets` | Set/remove a dependency using `blocker_id` and `blocked_id` |
 
@@ -136,19 +139,21 @@ All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error":
 
 | Method | Endpoint | Body / filters |
 | --- | --- | --- |
-| GET | `/api/state` | Full workspace snapshot |
+| GET | `/api/state` | Full workspace snapshot, including archived epics and their tickets/links so direct links and restoration remain possible |
 | GET | `/api/tickets/{id}/history` | `{ "ticket_id": 1, "history_complete": true, "events": [...] }`; events contain `id`, `ticket_id`, `from_status`, `to_status`, `changed_at`, `kind` (`created`, `baseline`, `transition`) |
-| GET | `/api/projects/{id}/execution` | Project, `generated_at`, aggregate `metrics`, epic/ticket execution details, and `daily_completions`/`weekly_completions`; durations are seconds, unknown start-dependent values are `null` |
+| GET | `/api/projects/{id}/execution` | Project, `generated_at`, aggregate `metrics`, unarchived epic/ticket rows, `epics_archived` count, and `daily_completions`/`weekly_completions`; aggregates include archives; durations are seconds, unknown start-dependent values are `null` |
 | GET / POST | `/api/projects` | Create: `{ "name": "Website" }` |
 | GET / PATCH / DELETE | `/api/projects/{id}` | Update: `{ "name": "New name" }` |
-| GET / POST | `/api/epics` | Create: `{ "project_id": 1, "title": "Launch" }`; GET filters: `project_id`, `completed=true\|false` |
-| GET / PATCH / DELETE | `/api/epics/{id}` | Update any of `title`, `project_id`, `completed` |
-| GET / POST | `/api/tickets` | Create: `{ "epic_id": 1, "title": "Build it", "description": "…", "status": "todo" }`; GET filters: `epic_id`, `status` |
+| GET / POST | `/api/epics` | Create: `{ "project_id": 1, "title": "Launch" }`; optional `completed`, `archived`; GET defaults to unarchived epics, filters: `project_id`, `completed=true\|false`, `archived=true\|false`, `include_archived=true` |
+| GET / PATCH / DELETE | `/api/epics/{id}` | Update any of `title`, `project_id`, `completed`, `archived`; direct GET still returns archived epics |
+| GET / POST | `/api/tickets` | Create: `{ "epic_id": 1, "title": "Build it", "description": "…", "status": "todo" }`; GET filters: `epic_id`, `status`; archived-parent tickets are omitted unless `include_archived=true` |
 | GET / PATCH / DELETE | `/api/tickets/{id}` | Update any of `title`, `description`, `epic_id`, `status` |
 | GET / POST / DELETE | `/api/links` | POST/DELETE: `{ "blocker_id": 1, "blocked_id": 2 }` |
 | GET | `/api/events` | SSE `change` events; fetch `/api/state` after each event |
 
 Status values are `todo`, `in_progress`, `ready_for_review`, `done`. Titles/names are trimmed and limited to 200 characters; descriptions to 100,000 bytes. `description` defaults to empty and `status` to `todo`. Project/epic deletion returns `409` when nonempty. Dependencies can cross epic/project boundaries.
+
+`GET /api/epics?archived=true` explicitly discovers archived epics; `?include_archived=true` returns both groups. An explicit `archived` filter takes precedence over `include_archived`. Complete workspace snapshots (`/api/state`, MCP `get_workspace`) always retain archived parents and children for consistent discovery. Invalid archive/reopen combinations return `400`, including on creation. Archives are a listing preference, not an access-control boundary or a read-only ticket state; intentional API/MCP ticket updates and direct detail pages remain available.
 
 ```sh
 curl -X POST http://127.0.0.1:8080/api/projects \
@@ -174,4 +179,4 @@ npm --prefix web run test:e2e # isolated browser smoke test against the built bi
 
 For hot reload, run `go run .` in one terminal and `make dev` in another. Open `http://127.0.0.1:5173`; Vite proxies `/api` and `/mcp` to port 8080. Rebuild `web/dist` with `make web` before building or committing frontend changes. Do not rebuild the frontend concurrently with a Go build/test: embedding reads those files during compilation.
 
-Tests cover persistence, hierarchy validation, status transitions, dependency cycles, deletion rules, REST filtering, origin checks, SSE notifications, and real MCP client/server round trips. Execution tests cover legacy migrations, atomic/no-op/external writes, reopen/review durations, missing starts, UTC bucket boundaries, and project attribution. The browser suite checks execution metrics/timelines and existing ticket/board workflows, themes, and mobile navigation with a temporary database.
+Tests cover persistence, hierarchy validation, status transitions, dependency cycles, deletion rules, REST filtering, origin checks, SSE notifications, and real MCP client/server round trips. Execution tests cover legacy migrations, atomic/no-op/external writes, reopen/review durations, missing starts, UTC bucket boundaries, and project attribution. Archive tests cover schema upgrades/marker recovery, database constraints, REST/MCP round trips, preserved history/metrics, live listing removal/restoration, direct-page editing, search, assignment options, and mobile use. Browser tests use their own temporary database.

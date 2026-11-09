@@ -124,6 +124,10 @@ h1 { font-size: 28px; line-height: 1.3; font-weight: 600; letter-spacing: -.85px
 .text-button { color: var(--secondary); display: inline-flex; align-items: center; gap: 5px; font-size: 13px; padding: 3px 0 3px 5px }
 .text-button:hover { color: var(--accent-text) }
 .epics-section { margin-bottom: 24px }
+.archived-epics-section { border-top: 1px solid var(--border); padding-top: 18px }
+.archived-epic-entry { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0 }
+.archived-epic-entry .epic-card { width: 100%; flex: 1; border-style: dashed }
+.archived-epic-entry > .text-button { align-self: end; padding-right: 3px }
 .epic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); gap: 10px }
 .epic-card { padding: 12px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; box-shadow: var(--shadow); min-height: 120px; transition: border-color .15s, box-shadow .15s }
 .epic-card:hover, .project-card:hover { border-color: var(--border-strong); box-shadow: 0 3px 10px #00000008 }
@@ -207,6 +211,7 @@ h1 { font-size: 28px; line-height: 1.3; font-weight: 600; letter-spacing: -.85px
 .project-progress { min-width: 0 }
 .execution-intro { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px }
 .execution-intro h2 { font-size: 15px; font-weight: 600 }.execution-intro > span { font-size: 11px; color: var(--muted) }
+.archive-metrics-note { font-size: 12px; color: var(--muted); margin-bottom: 12px }.archive-metrics-note a { color: var(--accent-text); text-underline-offset: 3px }
 .execution-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
 .execution-metric { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); min-width: 0 }
 .execution-metric h3 { font-size: 12px; font-weight: 500; color: var(--secondary) }.execution-metric > strong { font-size: 22px; font-weight: 550; letter-spacing: -.5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere }.execution-metric > span { font-size: 11px; color: var(--muted) }

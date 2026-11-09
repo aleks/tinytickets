@@ -25,6 +25,7 @@ type Epic struct {
 	ProjectID int64  `json:"project_id"`
 	Title     string `json:"title"`
 	Completed bool   `json:"completed"`
+	Archived  bool   `json:"archived"`
 }
 
 type Ticket struct {
@@ -58,6 +59,7 @@ type Input struct {
 	EpicID      *int64  `json:"epic_id,omitempty"`
 	Status      *string `json:"status,omitempty"`
 	Completed   *bool   `json:"completed,omitempty"`
+	Archived    *bool   `json:"archived,omitempty"`
 	BlockerID   int64   `json:"blocker_id,omitempty"`
 	BlockedID   int64   `json:"blocked_id,omitempty"`
 }
@@ -129,7 +131,7 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	if err := migrateExecutionHistory(db); err != nil {
+	if err := migrateDatabase(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -167,9 +169,9 @@ func snapshotTx(ctx context.Context, tx *sql.Tx) (State, error) {
 			state.Projects = append(state.Projects, p)
 			return nil
 		}},
-		{"SELECT id, project_id, title, completed FROM epics ORDER BY id", func(r *sql.Rows) error {
+		{"SELECT id, project_id, title, completed, archived FROM epics ORDER BY id", func(r *sql.Rows) error {
 			var e Epic
-			if err := r.Scan(&e.ID, &e.ProjectID, &e.Title, &e.Completed); err != nil {
+			if err := r.Scan(&e.ID, &e.ProjectID, &e.Title, &e.Completed, &e.Archived); err != nil {
 				return err
 			}
 			state.Epics = append(state.Epics, e)
@@ -288,6 +290,18 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 			return nil, err
 		}
 	}
+	if kind == "epics" && action != "delete" {
+		completed, archived := false, false
+		if !create {
+			if err := tx.QueryRowContext(ctx, "SELECT completed, archived FROM epics WHERE id=?", id).Scan(&completed, &archived); err != nil {
+				return nil, err
+			}
+		}
+		completed, archived = value(in.Completed, completed), value(in.Archived, archived)
+		if archived && !completed {
+			return nil, invalid("Only completed epics can be archived. Unarchive the epic before reopening it.")
+		}
+	}
 	if action != "delete" {
 		if kind == "epics" && in.ProjectID != nil {
 			if err := exists("projects", *in.ProjectID); err != nil {
@@ -350,7 +364,7 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 			case "projects":
 				res, err = tx.ExecContext(ctx, "INSERT INTO projects(name) VALUES (?)", *in.Name)
 			case "epics":
-				res, err = tx.ExecContext(ctx, "INSERT INTO epics(project_id, title, completed) VALUES (?, ?, ?)", *in.ProjectID, *in.Title, value(in.Completed, false))
+				res, err = tx.ExecContext(ctx, "INSERT INTO epics(project_id, title, completed, archived) VALUES (?, ?, ?, ?)", *in.ProjectID, *in.Title, value(in.Completed, false), value(in.Archived, false))
 			case "tickets":
 				res, err = tx.ExecContext(ctx, "INSERT INTO tickets(epic_id, title, description, status) VALUES (?, ?, ?, ?)", *in.EpicID, *in.Title, value(in.Description, ""), value(in.Status, "todo"))
 			}
@@ -375,6 +389,9 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 				}
 				if in.Completed != nil {
 					add("completed", *in.Completed)
+				}
+				if in.Archived != nil {
+					add("archived", *in.Archived)
 				}
 			case "tickets":
 				if in.Title != nil {
@@ -406,7 +423,7 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 			result = p
 		case "epics":
 			var e Epic
-			err = tx.QueryRowContext(ctx, "SELECT id, project_id, title, completed FROM epics WHERE id = ?", id).Scan(&e.ID, &e.ProjectID, &e.Title, &e.Completed)
+			err = tx.QueryRowContext(ctx, "SELECT id, project_id, title, completed, archived FROM epics WHERE id = ?", id).Scan(&e.ID, &e.ProjectID, &e.Title, &e.Completed, &e.Archived)
 			result = e
 		case "tickets":
 			var t Ticket

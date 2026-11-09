@@ -22,11 +22,11 @@ type Metrics = {
   median_completion_seconds: number | null; completion_samples: number
   oldest_active_age_seconds: number | null; active_age_samples: number
 }
-type EpicTiming = { epic: { id: number; title: string; completed: boolean }; metrics: Metrics; tickets: TicketTiming[] }
+type EpicTiming = { epic: { id: number; title: string; completed: boolean; archived: boolean }; metrics: Metrics; tickets: TicketTiming[] }
 type Bucket = { date: string; tickets: number }
 type Report = {
   project: { id: number; name: string }; generated_at: string; metrics: Metrics
-  epics_total: number; epics_completed: number; epics: EpicTiming[]
+  epics_total: number; epics_completed: number; epics_archived: number; epics: EpicTiming[]
   daily_completions: Bucket[]; weekly_completions: Bucket[]
 }
 
@@ -77,7 +77,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
   if (!report) return error ? <div className="form-error" role="alert">{error} <button className="text-button" onClick={() => setRetry(retry + 1)}>Retry</button></div> : <div className="loading"><LoaderCircle size={18} className="spin" />Loading execution history</div>
   const m = report.metrics
   const elapsed = Math.max(0, (now - Date.parse(report.generated_at)) / 1000)
-  const epics = report.epics.filter(e => !hideCompleted || !e.epic.completed)
+  const epics = report.epics.filter(e => !e.epic.archived && (!hideCompleted || !e.epic.completed))
   const observed = epics.flatMap(e => e.tickets).filter(t => t.segments.length > 0)
   const starts = observed.flatMap(t => t.segments.map(s => Date.parse(s.start)))
   const ends = observed.flatMap(t => t.segments.map(s => s.ongoing ? now : Date.parse(s.end)))
@@ -99,6 +99,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
   return <div className="project-progress">
     {error && <div className="form-error" role="alert">{error} <button className="text-button" onClick={() => setRetry(retry + 1)}>Retry</button></div>}
     <div className="execution-intro"><h2>Execution insights</h2><span>Updated <time dateTime={report.generated_at}>{localTime(report.generated_at)}</time></span></div>
+    {report.epics_archived > 0 && <p className="archive-metrics-note">Summary metrics include {report.epics_archived} archived {report.epics_archived === 1 ? 'epic' : 'epics'}. Archived rows are hidden. <a href="#epics">View archives</a></p>}
     <div className="execution-metrics">
       <Metric label="Completed tickets" value={`${m.completed} / ${m.total}`} detail={`${report.epics_completed} / ${report.epics_total} epics completed · ticket counts, not effort`} />
       <Metric label="Active tickets" value={String(m.active)} detail={`${m.status_counts.in_progress} in progress · ${m.status_counts.ready_for_review} in review`} />
@@ -130,7 +131,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
             })}<span className="timeline-now" title="Now" /></div></div>)}</div>
           </div>
         })}
-        {!epics.length && <p className="execution-empty">{report.epics.length ? 'No epics match this filter.' : 'No epics yet.'}</p>}
+        {!epics.length && <p className="execution-empty">{report.epics.length ? 'No epics match this filter.' : report.epics_archived ? 'All epics are archived.' : 'No epics yet.'}</p>}
       </div></div>
       <div className="timeline-legend">{statuses.map(s => <span key={s.id}><span className={`execution-dot execution-${s.id}`} />{s.id === 'todo' ? 'Returned to todo' : s.label}</span>)}<span>Bars show recorded execution, not a schedule. Done intervals between reopenings are preserved.</span></div>
     </section>
