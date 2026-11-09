@@ -13,15 +13,15 @@ func addTool[In, Out any](s *mcp.Server, name, description string, fn func(conte
 }
 
 func (a *App) newMCP() *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "tinytickets", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "TinyTickets organizes projects > epics > tickets. Every epic needs a project and every ticket needs an epic. Statuses: todo, in_progress, ready_for_review, done. A link's blocker_id blocks its blocked_id. Completed epics are hidden from the home overview, not deleted. Use get_workspace to discover IDs and links. Descriptions accept Markdown, including fenced mermaid diagrams, rendered on full ticket pages. Dependencies are informational and do not prevent moving tickets."})
-	addTool(s, "get_workspace", "List all projects, epics (including completed), tickets, and directed dependency links.", func(ctx context.Context, _ struct{}) (State, error) { return a.Store.Snapshot(ctx) })
+	s := mcp.NewServer(&mcp.Implementation{Name: "tinytickets", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "TinyTickets organizes projects > epics > tickets. Every epic needs a project and every ticket needs an epic. Statuses: todo, in_progress, ready_for_review, done. A link's blocker_id blocks its blocked_id. Completed epics are hidden from the home overview, not deleted. Only completed epics may be archived; unarchive before reopening. Archived work keeps tickets, history, direct links, and aggregate metrics but is hidden from ordinary listings. get_workspace is a complete snapshot including archives; inspect archived flags when listing epics. Use update_epic archived:true/false to archive/restore. Descriptions accept Markdown, including fenced mermaid diagrams, rendered on full ticket pages. Dependencies are informational and do not prevent moving tickets."})
+	addTool(s, "get_workspace", "Read the complete hierarchy-consistent workspace, including completed/archived epics and all their tickets and links. Check each epic's archived flag when building ordinary listings. Use update_epic with archived:false to restore archived work.", func(ctx context.Context, _ struct{}) (State, error) { return a.Store.Snapshot(ctx) })
 	addTool(s, "get_ticket_history", "Read automatically recorded creation/status events in order. A baseline means earlier history is unavailable, not that work started at that time. No-op updates do not create events.", func(ctx context.Context, in struct {
 		TicketID int64 `json:"ticket_id"`
 	}) (TicketHistoryResult, error) {
 		events, err := a.Store.TicketHistory(ctx, in.TicketID)
 		return historyResult(in.TicketID, events), err
 	})
-	addTool(s, "get_project_execution", "Read project/epic/ticket execution timelines and current metrics. No scheduling dates are needed: status changes record time automatically. Partial history is explicit; cycle/age metrics exclude unknown starts. Throughput counts each ticket's first observed completion once, attributed to its current project.", func(ctx context.Context, in struct {
+	addTool(s, "get_project_execution", "Read project execution timelines and metrics. Archived epics are omitted from rows but remain in totals, timing samples, and throughput; epics_archived reports their count. Status changes record time automatically; unknown starts are excluded from cycle/age samples. Throughput counts first observed completion once per ticket, attributed to its current project.", func(ctx context.Context, in struct {
 		ProjectID int64 `json:"project_id"`
 	}) (ProjectExecution, error) {
 		return a.Store.ProjectExecution(ctx, in.ProjectID)
@@ -43,13 +43,14 @@ func (a *App) newMCP() *mcp.Server {
 	}) (any, error) {
 		return a.Mutate(ctx, "epics", "create", 0, Input{ProjectID: &in.ProjectID, Title: &in.Title})
 	})
-	addTool(s, "update_epic", "Rename, move, complete, or reopen an epic. Omitted fields remain unchanged.", func(ctx context.Context, in struct {
+	addTool(s, "update_epic", "Rename, move, complete, reopen, archive, or unarchive an epic. Only completed epics can be archived. Unarchive before reopening; a combined archived:false, completed:false update is valid. Archiving preserves tickets/history/direct links. Omitted fields remain unchanged.", func(ctx context.Context, in struct {
 		ID        int64   `json:"id"`
 		Title     *string `json:"title,omitempty"`
 		ProjectID *int64  `json:"project_id,omitempty"`
 		Completed *bool   `json:"completed,omitempty"`
+		Archived  *bool   `json:"archived,omitempty"`
 	}) (any, error) {
-		return a.Mutate(ctx, "epics", "update", in.ID, Input{Title: in.Title, ProjectID: in.ProjectID, Completed: in.Completed})
+		return a.Mutate(ctx, "epics", "update", in.ID, Input{Title: in.Title, ProjectID: in.ProjectID, Completed: in.Completed, Archived: in.Archived})
 	})
 	addTool(s, "create_ticket", "Create a ticket in an epic. Status defaults to todo.", func(ctx context.Context, in struct {
 		EpicID      int64   `json:"epic_id"`

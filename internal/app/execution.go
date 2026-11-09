@@ -63,6 +63,7 @@ type ProjectExecution struct {
 	Metrics           ExecutionMetrics   `json:"metrics"`
 	EpicsTotal        int                `json:"epics_total"`
 	EpicsCompleted    int                `json:"epics_completed"`
+	EpicsArchived     int                `json:"epics_archived"`
 	Epics             []EpicExecution    `json:"epics"`
 	DailyCompletions  []CompletionBucket `json:"daily_completions"`
 	WeeklyCompletions []CompletionBucket `json:"weekly_completions"`
@@ -270,6 +271,9 @@ func buildProjectExecution(state State, events []StatusEvent, id int64, now time
 		if epic.Completed {
 			out.EpicsCompleted++
 		}
+		if epic.Archived {
+			out.EpicsArchived++
+		}
 		for _, ticket := range state.Tickets {
 			if ticket.EpicID != epic.ID {
 				continue
@@ -282,7 +286,11 @@ func buildProjectExecution(state State, events []StatusEvent, id int64, now time
 			all = append(all, timing)
 		}
 		e.Metrics = executionMetrics(e.Tickets, blocked)
-		out.Epics = append(out.Epics, e)
+		// Archived work remains in aggregate metrics and throughput, but is not
+		// an ordinary epic/ticket listing or a project timeline row.
+		if !epic.Archived {
+			out.Epics = append(out.Epics, e)
+		}
 	}
 	out.Metrics = executionMetrics(all, blocked)
 	out.DailyCompletions = completionBuckets(all, now, false)

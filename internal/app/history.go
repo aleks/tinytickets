@@ -27,7 +27,7 @@ func historyResult(id int64, events []StatusEvent) TicketHistoryResult {
 
 // Database triggers cover REST, MCP, and older processes still using this file.
 // Migration and baseline capture are atomic; historical dates are never guessed.
-func migrateExecutionHistory(db *sql.DB) error {
+func migrateDatabase(db *sql.DB) error {
 	ctx := context.Background()
 	conn, err := db.Conn(ctx)
 	if err != nil {
@@ -42,8 +42,8 @@ func migrateExecutionHistory(db *sql.DB) error {
 	if err = conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version > 2 {
-		return fmt.Errorf("database schema version %d is newer than supported version 2", version)
+	if version > 3 {
+		return fmt.Errorf("database schema version %d is newer than supported version 3", version)
 	}
 	if version < 2 {
 		// v1 binaries unconditionally reset user_version on open. Existing v2
@@ -73,6 +73,24 @@ func migrateExecutionHistory(db *sql.DB) error {
 			PRAGMA user_version = 2;
 		`)
 		if err != nil {
+			return err
+		}
+	}
+	if version < 3 {
+		// Older v1 binaries can reset the version marker. Preserve an existing
+		// archive column and its values when repairing that marker.
+		var columns int
+		if err = conn.QueryRowContext(ctx, "SELECT count(*) FROM pragma_table_info('epics') WHERE name='archived'").Scan(&columns); err != nil {
+			return err
+		}
+		if columns == 0 {
+			_, err = conn.ExecContext(ctx, `ALTER TABLE epics ADD COLUMN archived INTEGER NOT NULL DEFAULT 0
+				CHECK(archived IN (0,1) AND (archived=0 OR completed=1))`)
+			if err != nil {
+				return err
+			}
+		}
+		if _, err = conn.ExecContext(ctx, "PRAGMA user_version=3"); err != nil {
 			return err
 		}
 	}
