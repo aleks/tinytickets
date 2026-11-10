@@ -126,6 +126,9 @@ The official Go MCP SDK supplies protocol negotiation, tool schemas, validation,
 | Tool | Purpose |
 | --- | --- |
 | `get_workspace` | Complete, hierarchy-consistent snapshot including completed/archived epics and their tickets/links; inspect `archived` flags when making ordinary listings |
+| `get_ready_tickets` | Read ready tickets, oldest-created first; optional `project_id`, `epic_id`; returns `{ "tickets": [...] }` |
+| `claim_next_ticket` | Atomically select ready work and move it to In progress; optional `project_id`, `epic_id` |
+| `claim_ticket` | Atomically recheck and start a specific ready ticket using `ticket_id` |
 | `get_ticket_history` | Ordered creation/baseline/status events for `ticket_id`, with a `history_complete` flag |
 | `get_project_execution` | Execution segments, project/epic/ticket metrics, coverage, and UTC completion buckets for `project_id` |
 | `create_project`, `update_project`, `delete_project` | Manage projects |
@@ -135,6 +138,18 @@ The official Go MCP SDK supplies protocol negotiation, tool schemas, validation,
 
 Updates are partial: omitted fields stay unchanged. IDs are positive integers. Dependency creation/removal is idempotent. `get_workspace` is intentionally a full snapshot suitable for small workspaces, rather than a paginated issue-tracker API.
 
+### Preferred agent workflow
+
+Before starting work, use **`claim_next_ticket`** (usually scoped to a project) or **`claim_ticket`** for a chosen ticket, instead of separate reads and `update_ticket(status: "in_progress")`. Create new tasks as Todo, then claim them. `get_ready_tickets` is useful for planning but does not reserve anything. The server advertises this guidance in MCP instructions and tool descriptions; repository agents also receive it through `AGENTS.md`.
+
+A ticket is ready only when it is **Todo**, its epic is **unfinished and unarchived**, and **every blocking ticket is Done**, including blockers in other projects. Completing/archiving a blocker's epic is not enough. Results are ordered by creation timestamp, then ID. Optional scope IDs must be positive and exist; when both are supplied, the epic must belong to that project.
+
+Both claim operations return `{ "claimed": true, "ticket": { ... } }` on success. `claim_next_ticket` returns `{ "claimed": false, "ticket": null }` when no ready work exists in scope. A missing specific ticket is an error; an existing but no-longer-ready ticket is a conflict. Refresh and choose again rather than bypassing the failed claim with an ordinary update.
+
+Claims check readiness and move to In progress in a single SQLite write transaction, including across HTTP/stdio processes sharing a database. Existing history, column timers, and live updates start automatically. Completing/reopening blockers and returning candidates to Todo recomputes eligibility without queue bookkeeping; reopening a blocker does not move active work backward.
+
+This is coordination, **not ownership enforcement**: no owner field, lease, automatic reassignment, priority, or separate queue UI. Ordinary updates and board drag-and-drop remain compatible and may start blocked tickets. Use `update_ticket` for edits and subsequent transitions; return abandoned work to Todo explicitly. Older servers without claim tools require the previous read/update workflow, which is not concurrency-safe. Restart an existing server/stdio process with the new binary (and refresh the client's tool list if needed) to expose the new tools.
+
 ## REST API
 
 All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error": "message" }` with an appropriate HTTP status. No CORS access is enabled.
@@ -142,6 +157,9 @@ All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error":
 | Method | Endpoint | Body / filters |
 | --- | --- | --- |
 | GET | `/api/state` | Full workspace snapshot, including archived epics and their tickets/links so direct links and restoration remain possible |
+| GET | `/api/tickets/ready` | Optional query filters `project_id`, `epic_id`; returns `{ "tickets": [...] }` (empty list when no ready work) |
+| POST | `/api/tickets/claim-next` | JSON body with optional `project_id`, `epic_id` (or empty body); returns `{ "claimed": true, "ticket": {...} }` or `{ "claimed": false, "ticket": null }` |
+| POST | `/api/tickets/{id}/claim` | Empty body or `{}`; same success shape; `404` if missing, `409` if no longer ready |
 | GET | `/api/tickets/{id}/history` | `{ "ticket_id": 1, "history_complete": true, "events": [...] }`; events contain `id`, `ticket_id`, `from_status`, `to_status`, `changed_at`, `kind` (`created`, `baseline`, `transition`) |
 | GET | `/api/projects/{id}/execution` | Project, `generated_at`, aggregate `metrics`, unarchived epic/ticket rows, `epics_archived` count, and `daily_completions`/`weekly_completions`; aggregates include archives; durations are seconds, unknown start-dependent values are `null` |
 | GET / POST | `/api/projects` | Create: `{ "name": "Website" }` |
@@ -166,8 +184,7 @@ curl -X POST http://127.0.0.1:8080/api/epics \
   -H 'Content-Type: application/json' -d '{"project_id":1,"title":"Launch"}'
 curl -X POST http://127.0.0.1:8080/api/tickets \
   -H 'Content-Type: application/json' -d '{"epic_id":1,"title":"Build the homepage"}'
-curl -X PATCH http://127.0.0.1:8080/api/tickets/1 \
-  -H 'Content-Type: application/json' -d '{"status":"in_progress"}'
+curl -X POST http://127.0.0.1:8080/api/tickets/1/claim
 ```
 
 ## Development
@@ -184,3 +201,5 @@ npm --prefix web run test:e2e # isolated browser smoke test against the built bi
 For hot reload, run `go run .` in one terminal and `make dev` in another. Open `http://127.0.0.1:5173`; Vite proxies `/api` and `/mcp` to port 8080. Rebuild `web/dist` with `make web` before building or committing frontend changes. Do not rebuild the frontend concurrently with a Go build/test: embedding reads those files during compilation.
 
 Tests cover persistence, hierarchy validation, status transitions, dependency cycles, deletion rules, REST filtering, origin checks, SSE notifications, and real MCP client/server round trips. Execution tests cover legacy migrations, atomic/no-op/external writes, reopen/review durations, missing starts, UTC bucket boundaries, and project attribution. Archive tests cover schema upgrades/marker recovery, database constraints, REST/MCP round trips, preserved history/metrics, live listing removal/restoration, direct-page editing, search, assignment options, and mobile use. Browser tests use their own temporary database.
+
+Ready-work tests cover cross-project blockers, completed/archived epics, ordering/scopes, stale selections, explicit empty results, concurrent claims through independent stores and processes, history/timer anchors, notifications, and REST/MCP validation. No database schema upgrade is required for claiming.
