@@ -71,6 +71,16 @@ export function DependencyMap({ projectID, data }: { projectID: number; data: Ma
             </div>
           </div>
           <p className="dependency-help" id="dependency-scroll-help">Scroll to explore; use zoom controls for larger maps. Tab to a ticket and press Enter to trace its chain. Ready to start is a live snapshot, not a reservation.</p>
+          <section className="dependency-line-guide" aria-label="How to read the dependency map">
+            <h3>How to read the map</h3>
+            <p>Arrows always point from the blocker to the ticket it blocks.</p>
+            <dl>
+              <div><dt><span className="map-style-sample map-style-pending" aria-hidden="true" />Dotted lines</dt><dd>The blocking ticket is not Done yet, so the dependency is unresolved.</dd></div>
+              <div><dt><span className="map-style-sample map-style-satisfied" aria-hidden="true" />Solid, muted lines</dt><dd>The blocking ticket is Done, so the dependency is satisfied.</dd></div>
+              <div><dt><span className="map-style-sample map-style-highlight" aria-hidden="true" />Accent-colored lines</dt><dd>The selected ticket's chain is highlighted. This overrides the normal line styling.</dd></div>
+              <div><dt><span className="map-style-sample map-style-context" aria-hidden="true" />Dashed card borders</dt><dd>Linked context from another project or a hidden archived epic.</dd></div>
+            </dl>
+          </section>
         </>}
       </div>
       {selected && <aside className="dependency-selection" aria-label="Selected dependency ticket"><div className="section-heading"><h3>TT-{selected.id}</h3><a className="text-button" href={`#ticket/${selected.id}`}>Open ticket<ArrowUpRight size={13} /></a></div><p className="dependency-selected-title">{selected.title}</p><p className="muted">{statusLabels[selected.status]}{!nodeByID.has(selected.id) ? ' · Hidden by current filters' : ''}</p>

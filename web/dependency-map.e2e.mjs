@@ -39,6 +39,14 @@ export async function testDependencyMap(page, url) {
   await tabs.getByRole('link', { name: 'Dependencies', exact: true }).click()
   const map = page.locator('.dependency-map')
   await map.getByRole('heading', { name: 'Dependency map', exact: true }).waitFor()
+  const guide = map.getByRole('region', { name: 'How to read the dependency map', exact: true })
+  await guide.getByRole('heading', { name: 'How to read the map', exact: true }).waitFor()
+  for (const explanation of ['The blocking ticket is not Done yet, so the dependency is unresolved.', 'The blocking ticket is Done, so the dependency is satisfied.', "The selected ticket's chain is highlighted. This overrides the normal line styling.", 'Linked context from another project or a hidden archived epic.']) {
+    await guide.getByText(explanation, { exact: true }).waitFor()
+  }
+  const graphBounds = await map.locator('.dependency-scroll').boundingBox()
+  const guideBounds = await guide.boundingBox()
+  assert.ok(guideBounds.y >= graphBounds.y + graphBounds.height)
   assert.equal(new URL(page.url()).hash, `#project/${project.id}/dependencies`)
   assert.equal(await tabs.getByRole('link', { name: 'Dependencies', exact: true }).getAttribute('aria-current'), 'page')
   assert.equal(await tabs.getByRole('link', { name: 'Board', exact: true }).getAttribute('aria-current'), null)
@@ -138,6 +146,7 @@ export async function testDependencyMap(page, url) {
     await page.setViewportSize({ width: 390, height: 844 })
     await node(d).getByRole('button').click()
     await selection.waitFor()
+    assert.equal(await guide.isVisible(), true)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     assert.ok(await map.locator('.dependency-scroll').evaluate(el => el.scrollWidth > el.clientWidth))
     await page.setViewportSize({ width: 1440, height: 1000 })

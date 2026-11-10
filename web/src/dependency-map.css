@@ -46,6 +46,17 @@
 .map-node-open:hover { background: var(--hover); color: var(--accent-text) }
 .dependency-focus-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px }
 .dependency-help { margin-top: 8px }
+.dependency-line-guide { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--secondary) }
+.dependency-line-guide h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px }
+.dependency-line-guide dl { display: grid; gap: 8px; margin: 12px 0 0 }
+.dependency-line-guide dl > div { display: flex; flex-wrap: wrap; gap: 3px 14px }
+.dependency-line-guide dt { display: flex; align-items: center; gap: 8px; flex: 0 0 175px; font-weight: 550; color: var(--text) }
+.dependency-line-guide dd { margin: 0; flex: 1 1 240px }
+.map-style-sample { display: inline-block; width: 32px; flex-shrink: 0; border-top: 2px solid var(--secondary) }
+.map-style-pending { border-top-style: dashed }
+.map-style-satisfied { border-color: var(--border-strong) }
+.map-style-highlight { border-color: var(--accent-text) }
+.map-style-context { height: 17px; border: 1px dashed var(--border-strong); border-radius: 3px; background: var(--surface) }
 .dependency-empty { min-height: 220px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 7px; color: var(--secondary) }
 .dependency-empty h3 { font-size: 15px; font-weight: 550 }
 .dependency-empty p { font-size: 13px }
