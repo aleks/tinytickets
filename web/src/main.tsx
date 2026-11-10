@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Archive, ArchiveRestore, ArrowLeft, ArrowUpRight, Check, CheckCheck, CheckCircle2, ChevronDown, Circle, CircleDot, Folder, FolderPlus, Home, Layers, Link2, LoaderCircle, Menu, Moon, MoreHorizontal, Pencil, Plus, Search, Sun, Ticket as TicketIcon, Trash2, X } from 'lucide-react'
 import './style.css'
 import { TicketColumnTimer } from './TicketColumnTimer'
+import { TicketWorkLog } from './TicketWorkLog'
 
 const MarkdownDescription = lazy(() => import('./MarkdownDescription').then(module => ({ default: module.MarkdownDescription })))
 const ProjectProgress = lazy(() => import('./ProjectProgress').then(module => ({ default: module.ProjectProgress })))
@@ -285,11 +286,14 @@ function TicketPage({ ticket, data, mutate, edit }: { ticket: Ticket; data: Work
   }
 
   return <div className="ticket-page">
+    <div className="ticket-main">
     <article className="ticket-document" aria-label="Ticket description">
       <div className="ticket-context">{project && <a href={viewHref({ type: 'project', id: project.id })}><Folder size={14} />{project.name}</a>}{epic && <a href={viewHref({ type: 'epic', id: epic.id })}><Layers size={14} />{epic.title}</a>}{epic?.archived ? <><span className="badge"><Archive size={11} />Archived epic</span><button className="text-button" disabled={saving} onClick={restoreEpic}><ArchiveRestore size={13} />Unarchive epic</button></> : epic?.completed && <span className="badge"><Check size={11} />Completed epic</span>}</div>
       <div className="section-heading"><h2>Description</h2><button className="text-button" onClick={edit}><Pencil size={13} />Edit</button></div>
       {ticket.description.trim() ? <Suspense fallback={<p className="muted" role="status">Loading description…</p>}><MarkdownDescription source={ticket.description} /></Suspense> : <button className="empty-description" onClick={edit}>Add a description…</button>}
     </article>
+    <TicketWorkLog ticketID={ticket.id} revision={data} mutate={mutate} />
+    </div>
     <aside className="ticket-details" aria-label="Ticket details">
       <h2>Details</h2>
       {error && <div className="form-error" role="alert">{error}</div>}

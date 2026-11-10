@@ -83,6 +83,8 @@ func (a *App) Handler(assets fs.FS) http.Handler {
 	mux.HandleFunc("/api/tickets/ready", a.readyTicketsHTTP)
 	mux.HandleFunc("/api/tickets/claim-next", a.claimNextHTTP)
 	mux.HandleFunc("/api/tickets/{id}/claim", a.claimTicketHTTP)
+	mux.HandleFunc("/api/tickets/{id}/work-log", a.workLogHTTP)
+	mux.HandleFunc("/api/tickets/{id}/review-handoff", a.reviewHandoffHTTP)
 	mux.HandleFunc("/api/tickets/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		if !readOnly(w, r) {
 			return
@@ -193,6 +195,31 @@ func readInput(r *http.Request) (Input, error) {
 		return Input{}, invalid("Request body is too large or unreadable")
 	}
 	return decodeInput(raw)
+}
+
+// Bodies accept only their documented object fields. An absent body is
+// equivalent to {} so an unscoped claim does not require a dummy JSON payload.
+func readObjectBody(r *http.Request, out any) error {
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		return invalid("Request body is too large or unreadable")
+	}
+	text := strings.TrimSpace(string(raw))
+	if text == "" {
+		text = "{}"
+	}
+	if !strings.HasPrefix(text, "{") {
+		return invalid("Input must be a JSON object")
+	}
+	dec := json.NewDecoder(strings.NewReader(text))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(out); err != nil {
+		return invalid("Invalid input: " + err.Error())
+	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		return invalid("Input must contain exactly one JSON object")
+	}
+	return nil
 }
 
 func (a *App) collection(w http.ResponseWriter, r *http.Request) {

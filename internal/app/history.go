@@ -42,8 +42,8 @@ func migrateDatabase(db *sql.DB) error {
 	if err = conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version > 3 {
-		return fmt.Errorf("database schema version %d is newer than supported version 3", version)
+	if version > 4 {
+		return fmt.Errorf("database schema version %d is newer than supported version 4", version)
 	}
 	if version < 2 {
 		// v1 binaries unconditionally reset user_version on open. Existing v2
@@ -91,6 +91,11 @@ func migrateDatabase(db *sql.DB) error {
 			}
 		}
 		if _, err = conn.ExecContext(ctx, "PRAGMA user_version=3"); err != nil {
+			return err
+		}
+	}
+	if version < 4 {
+		if err = migrateWorkLog(ctx, conn); err != nil {
 			return err
 		}
 	}

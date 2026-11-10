@@ -77,4 +77,26 @@ func TestStdioRoundTrip(t *testing.T) {
 	if err != nil || len(state.Tickets) != 1 || state.Tickets[0].Status != "in_progress" || state.Tickets[0].StatusSince == nil {
 		t.Fatalf("stdio claim not persisted: %+v %v", state, err)
 	}
+	id := state.Tickets[0].ID
+	for _, call := range []struct {
+		name string
+		args map[string]any
+	}{
+		{"add_work_log", map[string]any{"ticket_id": id, "body": "Implemented through stdio", "author": "stdio agent"}},
+		{"create_review_handoff", map[string]any{"ticket_id": id, "summary": "Ready for review", "verification": "Stdio round trip passed"}},
+		{"get_ticket_work_log", map[string]any{"ticket_id": id}},
+	} {
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: call.name, Arguments: call.args})
+		if err != nil || result.IsError {
+			t.Fatalf("%s: %v %v", call.name, result, err)
+		}
+	}
+	log, err := s.TicketWorkLog(ctx, id)
+	if err != nil || len(log.Entries) != 2 || log.Entries[0].Kind != "note" || log.Entries[1].Kind != "review_handoff" {
+		t.Fatal(log, err)
+	}
+	state, err = s.Snapshot(ctx)
+	if err != nil || state.Tickets[0].Status != "ready_for_review" {
+		t.Fatal(state, err)
+	}
 }

@@ -1,37 +1,9 @@
 package app
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
-	"strings"
 )
-
-// Claim bodies accept only their documented object fields. An absent body is
-// equivalent to {} so an unscoped POST does not require a dummy JSON payload.
-func readClaimBody(r *http.Request, out any) error {
-	raw, err := io.ReadAll(r.Body)
-	if err != nil {
-		return invalid("Request body is too large or unreadable")
-	}
-	text := strings.TrimSpace(string(raw))
-	if text == "" {
-		text = "{}"
-	}
-	if !strings.HasPrefix(text, "{") {
-		return invalid("Input must be a JSON object")
-	}
-	dec := json.NewDecoder(strings.NewReader(text))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(out); err != nil {
-		return invalid("Invalid claim input: " + err.Error())
-	}
-	if err := dec.Decode(new(any)); err != io.EOF {
-		return invalid("Input must contain exactly one JSON object")
-	}
-	return nil
-}
 
 func postOnly(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodPost {
@@ -70,7 +42,7 @@ func (a *App) claimNextHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var f ReadyFilter
-	if err := readClaimBody(r, &f); err != nil {
+	if err := readObjectBody(r, &f); err != nil {
 		respond(w, nil, err, 0)
 		return
 	}
@@ -87,7 +59,7 @@ func (a *App) claimTicketHTTP(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, invalid("A positive ticket_id is required"), 0)
 		return
 	}
-	if err := readClaimBody(r, &struct{}{}); err != nil {
+	if err := readObjectBody(r, &struct{}{}); err != nil {
 		respond(w, nil, err, 0)
 		return
 	}
