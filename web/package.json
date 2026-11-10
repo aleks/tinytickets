@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "test:e2e": "node e2e.mjs"
+    "test": "node --test dependency-map.test.mjs",
+    "test:e2e": "npm test && node e2e.mjs"
   },
   "dependencies": {
     "dompurify": "^3.4.17",

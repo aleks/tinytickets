@@ -11,6 +11,7 @@ import { testProjectEpicOrdering } from './epic-ordering.e2e.mjs'
 import { testEpicArchiving } from './archiving.e2e.mjs'
 import { testColumnTimers } from './column-timers.e2e.mjs'
 import { testWorkLog } from './work-log.e2e.mjs'
+import { testDependencyMap } from './dependency-map.e2e.mjs'
 
 // Build the binary first. Tests launch an isolated server with an empty database.
 const dir = await mkdtemp(join(tmpdir(), 'tinytickets-e2e-'))
@@ -287,6 +288,7 @@ try {
   await testProjectEpicOrdering(page, url)
   await testEpicArchiving(page, url)
   await testWorkLog(page, url)
+  await testDependencyMap(page, url)
   await testColumnTimers(page, url)
   // Appearance changes still work if localStorage is blocked by the browser.
   const privatePage = await browser.newPage()
@@ -301,7 +303,7 @@ try {
   assert.equal(await privatePage.locator('html').getAttribute('data-accent'), 'slate')
   await privatePage.close()
   assert.deepEqual(errors, [])
-  console.log('PASS: ordered work logs/review handoffs, live current-column timers, epic archiving, project ordering, execution insights, full ticket pages, safe Markdown/Mermaid, CRUD, live updates, themes, mobile layout, blocked storage')
+  console.log('PASS: interactive dependency maps, ordered work logs/review handoffs, live current-column timers, epic archiving, project ordering, execution insights, full ticket pages, safe Markdown/Mermaid, CRUD, live updates, themes, mobile layout, blocked storage')
 } finally {
   await browser?.close()
   if (server.pid && server.exitCode === null && !server.killed) {

@@ -1,0 +1,63 @@
+.dependency-map { min-width: 0 }
+.dependency-intro { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 10px 20px; margin-bottom: 16px }
+.dependency-intro h2 { display: flex; align-items: center; gap: 7px; font-size: 17px; font-weight: 600; margin-bottom: 5px }
+.dependency-intro p, .dependency-counts, .dependency-notice, .dependency-help { color: var(--secondary); font-size: 12px }
+.dependency-counts { white-space: nowrap; padding-top: 3px }
+.dependency-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px }
+.dependency-filters { display: flex; flex-wrap: wrap; gap: 10px 18px }
+.dependency-zoom { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); padding: 2px 5px }
+.dependency-zoom .text-button { min-width: 40px; justify-content: center; padding: 0 }
+.dependency-legend { display: flex; flex-wrap: wrap; gap: 5px 16px; font-size: 11px; color: var(--secondary); margin-bottom: 12px }
+.dependency-legend > span { display: inline-flex; align-items: center; gap: 4px }
+.map-legend-ready { color: var(--accent-text); font-weight: 600 }
+.map-legend-done { color: var(--secondary) }
+.dependency-notice { margin: 8px 0; overflow-wrap: anywhere }
+.dependency-layout { display: flex; align-items: start; gap: 16px; margin-top: 14px; min-width: 0 }
+.dependency-canvas-column { flex: 1; min-width: 0 }
+.dependency-scroll { border: 1px solid var(--border); border-radius: 7px; overflow: auto; max-height: 600px; background: var(--column); width: 100%; overscroll-behavior: contain }
+.dependency-scroll:focus-visible, .map-node-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.dependency-scaled-space { position: relative }
+.dependency-canvas { position: absolute; inset: 0 auto auto 0; transform-origin: top left }
+.dependency-arrows { position: absolute; inset: 0; pointer-events: none; overflow: visible }
+.map-edge { fill: none; stroke-width: 1.6; stroke-linejoin: round }
+.map-edge-pending { stroke: var(--secondary); stroke-dasharray: 5 3 }
+.map-edge-satisfied { stroke: var(--border-strong) }
+.map-edge-highlight { stroke: var(--accent-text); stroke-width: 2.5 }
+.map-arrowhead-pending { fill: var(--secondary) }
+.map-arrowhead-satisfied { fill: var(--border-strong) }
+.map-arrowhead-highlight { fill: var(--accent-text) }
+.map-edge-dimmed { opacity: .3 }
+.map-node { position: absolute; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden }
+.map-node-context { border-style: dashed }
+.map-node-ready { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft) }
+.map-node-done { background: var(--bg); color: var(--secondary) }
+.map-node-dimmed { opacity: .55 }
+.map-node-selected { border-color: var(--accent-text); box-shadow: 0 0 0 2px var(--accent-soft); opacity: 1 }
+.map-node:hover, .map-node:focus-within { border-color: var(--accent-text); opacity: 1 }
+.map-node-select { display: flex; flex-direction: column; gap: 5px; width: 100%; height: 100%; padding: 10px; border-radius: 6px; text-align: left }
+.map-node-select:focus-visible { outline-offset: -3px }
+.map-node-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-right: 20px; font-size: 11px; color: var(--secondary) }
+.map-node-status { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap }
+.map-node-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; font-weight: 550; min-height: 36px }
+.map-node-epic { display: block; font-size: 11px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100% }
+.map-node-badges { display: flex; flex-wrap: wrap; gap: 3px 8px; font-size: 10px; color: var(--secondary); line-height: 1.4; margin-top: auto }
+.map-ready-badge { color: var(--accent-text); font-weight: 650 }
+.map-node-open { position: absolute; top: 6px; right: 5px; width: 23px; height: 23px; display: flex; align-items: center; justify-content: center; color: var(--secondary); border-radius: 4px }
+.map-node-open:hover { background: var(--hover); color: var(--accent-text) }
+.dependency-focus-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px }
+.dependency-help { margin-top: 8px }
+.dependency-empty { min-height: 220px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 7px; color: var(--secondary) }
+.dependency-empty h3 { font-size: 15px; font-weight: 550 }
+.dependency-empty p { font-size: 13px }
+.dependency-selection { width: 248px; flex-shrink: 0; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; overflow-wrap: anywhere; font-size: 12px }
+.dependency-selection h3 { font-size: 13px }
+.dependency-selected-title { font-weight: 550; margin-bottom: 5px; font-size: 14px }
+.dependency-relations { margin-top: 16px }
+.dependency-relations h4 { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 7px }
+.dependency-relations ul { list-style: none; padding: 0; margin: 0 }
+.dependency-relations li { padding: 7px 0; border-bottom: 1px solid var(--border) }
+.dependency-relations li > a { color: var(--text); text-decoration: none; display: block }
+.dependency-relations li > a:hover { color: var(--accent-text); text-decoration: underline }
+.dependency-relations li > a > .ticket-id { margin-right: 6px }
+.dependency-relations li > span { display: block; color: var(--secondary); margin-top: 3px; font-size: 11px }
+@media (max-width: 1100px) { .dependency-layout { flex-direction: column }.dependency-canvas-column, .dependency-selection { width: 100% }.dependency-scroll { max-height: 500px } }
