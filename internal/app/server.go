@@ -80,6 +80,9 @@ func (a *App) Handler(assets fs.FS) http.Handler {
 		respond(w, state, err, 200)
 	})
 	mux.HandleFunc("GET /api/events", a.events)
+	mux.HandleFunc("/api/tickets/ready", a.readyTicketsHTTP)
+	mux.HandleFunc("/api/tickets/claim-next", a.claimNextHTTP)
+	mux.HandleFunc("/api/tickets/{id}/claim", a.claimTicketHTTP)
 	mux.HandleFunc("/api/tickets/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		if !readOnly(w, r) {
 			return

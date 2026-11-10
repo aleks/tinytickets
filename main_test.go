@@ -59,4 +59,22 @@ func TestStdioRoundTrip(t *testing.T) {
 	if len(state.Projects) != 1 || state.Projects[0].Name != "Stdio project" {
 		t.Fatal(state)
 	}
+	for _, call := range []struct {
+		name string
+		args map[string]any
+	}{
+		{"create_epic", map[string]any{"project_id": state.Projects[0].ID, "title": "Stdio work"}},
+		{"create_ticket", map[string]any{"epic_id": 1, "title": "Claim through stdio"}},
+		{"get_ready_tickets", map[string]any{"project_id": state.Projects[0].ID}},
+		{"claim_next_ticket", map[string]any{"project_id": state.Projects[0].ID}},
+	} {
+		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: call.name, Arguments: call.args})
+		if err != nil || result.IsError {
+			t.Fatalf("%s: %v %v", call.name, result, err)
+		}
+	}
+	state, err = s.Snapshot(ctx)
+	if err != nil || len(state.Tickets) != 1 || state.Tickets[0].Status != "in_progress" || state.Tickets[0].StatusSince == nil {
+		t.Fatalf("stdio claim not persisted: %+v %v", state, err)
+	}
 }
