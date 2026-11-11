@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { ClipboardCheck, MessageSquare } from 'lucide-react'
 import { api, errorMessage, type Mutate } from '../../shared/api'
-import type { WorkLogEntry } from '../../shared/types'
+import { useTicketWorkLog } from './useTicketWorkLog'
 
 const MarkdownDescription = lazy(() =>
   import('../markdown/MarkdownDescription').then((module) => ({
@@ -26,10 +26,7 @@ export function TicketWorkLog({
   revision: unknown
   mutate: Mutate
 }) {
-  const [entries, setEntries] = useState<WorkLogEntry[]>([])
-  const [loaded, setLoaded] = useState(false)
-  const [loadError, setLoadError] = useState('')
-  const [reload, setReload] = useState(0)
+  const { entries, loaded, error: loadError, retry, accept } = useTicketWorkLog(ticketID, revision)
   const [kind, setKind] = useState('note')
   const [body, setBody] = useState('')
   const [author, setAuthor] = useState('')
@@ -40,27 +37,6 @@ export function TicketWorkLog({
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const handoff = kind === 'review_handoff'
-
-  useEffect(() => {
-    const controller = new AbortController()
-    let active = true
-    api
-      .workLog(ticketID, controller.signal)
-      .then((result) => {
-        if (active) {
-          setEntries(result.entries)
-          setLoaded(true)
-          setLoadError('')
-        }
-      })
-      .catch((err) => {
-        if (active) setLoadError(errorMessage(err))
-      })
-    return () => {
-      active = false
-      controller.abort()
-    }
-  }, [ticketID, revision, reload])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -82,11 +58,7 @@ export function TicketWorkLog({
             )
           ).entry
         : await mutate(api.addWorkLog(ticketID, { body, author }))
-      setEntries((previous) =>
-        [...previous.filter((e) => e.id !== entry.id), entry].sort((a, b) => a.id - b.id),
-      )
-      setLoaded(true)
-      setReload((value) => value + 1)
+      accept(entry)
       setBody('')
       setVerification('')
       setReferences('')
@@ -113,7 +85,7 @@ export function TicketWorkLog({
       {loadError && (
         <div className="form-error" role="alert">
           {loadError}{' '}
-          <button className="text-button" onClick={() => setReload((value) => value + 1)}>
+          <button className="text-button" onClick={retry}>
             Retry loading log
           </button>
         </div>

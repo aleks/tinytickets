@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+export const binaryPath = fileURLToPath(new URL('../../../tinytickets', import.meta.url))
+
 function startServer(server: ChildProcess): Promise<string> {
   return new Promise((resolve, reject) => {
     let logs = ''
@@ -37,7 +39,7 @@ function startServer(server: ChildProcess): Promise<string> {
   })
 }
 
-async function stopServer(server: ChildProcess): Promise<void> {
+export async function stopServer(server: ChildProcess): Promise<void> {
   if (!server.pid || server.exitCode !== null || server.signalCode !== null) return
   await new Promise<void>((resolve, reject) => {
     const cleanup = () => {
@@ -59,17 +61,22 @@ async function stopServer(server: ChildProcess): Promise<void> {
   })
 }
 
-export const test = base.extend<{ serverURL: string; runtimeErrors: void }>({
+export const test = base.extend<{ serverURL: string; databasePath: string; runtimeErrors: void }>({
   // Playwright requires destructuring even when a fixture has no dependencies.
   // eslint-disable-next-line no-empty-pattern
-  serverURL: async ({}, use) => {
+  databasePath: async ({}, use) => {
     const directory = await mkdtemp(join(tmpdir(), 'tinytickets-e2e-'))
+    try {
+      await use(join(directory, 'test.db'))
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  },
+  serverURL: async ({ databasePath }, use) => {
     // Never use a running workspace server or an existing database.
-    const server = spawn(
-      fileURLToPath(new URL('../../../tinytickets', import.meta.url)),
-      ['--addr', '127.0.0.1:0', '--db', join(directory, 'test.db')],
-      { stdio: ['ignore', 'ignore', 'pipe'] },
-    )
+    const server = spawn(binaryPath, ['--addr', '127.0.0.1:0', '--db', databasePath], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    })
     try {
       const url = await startServer(server)
       // Keep draining stderr after readiness so a verbose server cannot block.
@@ -77,7 +84,6 @@ export const test = base.extend<{ serverURL: string; runtimeErrors: void }>({
       await use(url)
     } finally {
       await stopServer(server)
-      await rm(directory, { recursive: true, force: true })
     }
   },
   baseURL: async ({ serverURL }, use) => {

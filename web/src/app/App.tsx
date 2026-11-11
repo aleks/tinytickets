@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Folder, LoaderCircle } from 'lucide-react'
 import { api, errorMessage } from '../shared/api'
-import type { Epic, Status, Workspace } from '../shared/types'
+import type { Epic, Status } from '../shared/types'
 import { initialView, viewHref, type View } from './routing'
 import { AppShell } from './AppShell'
 import { PageHeading } from './PageHeading'
@@ -16,8 +16,7 @@ import {
   selectVisibleEpics,
   selectVisibleTickets,
 } from '../features/workspace/selectors'
-
-const empty: Workspace = { projects: [], epics: [], tickets: [], links: [] }
+import { useWorkspace } from '../features/workspace/useWorkspace'
 
 const ProjectProgress = lazy(() =>
   import('../features/progress/ProjectProgress').then((module) => ({
@@ -31,9 +30,8 @@ const DependencyMap = lazy(() =>
 )
 
 export function App() {
-  const [data, setData] = useState<Workspace>(empty)
-  const [loaded, setLoaded] = useState(false)
-  const [connected, setConnected] = useState(false)
+  const workspace = useWorkspace()
+  const { data, loaded, connected, refresh, revision } = workspace
   const [view, setView] = useState<View>(initialView)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [query, setQuery] = useState('')
@@ -42,33 +40,8 @@ export function App() {
   const [theme, setTheme] = useState(document.documentElement.dataset.theme || 'light')
   const [dragOver, setDragOver] = useState<Status | null>(null)
   const [busy, setBusy] = useState(false)
-  const requestNumber = useRef(0)
-
-  async function refresh() {
-    const n = ++requestNumber.current
-    try {
-      const next = await api.workspace()
-      if (n === requestNumber.current) {
-        setData(next)
-        setLoaded(true)
-      }
-    } catch (err) {
-      if (n === requestNumber.current) setError(errorMessage(err))
-    }
-  }
 
   useEffect(() => {
-    refresh()
-    const events = new EventSource('/api/events')
-    events.onopen = () => setConnected(true)
-    events.onerror = () => setConnected(false)
-    events.addEventListener('change', refresh)
-    // Fallback for proxies that buffer SSE, and catch up when a sleeping tab wakes.
-    const poll = window.setInterval(refresh, 15000)
-    const focus = () => {
-      if (!document.hidden) refresh()
-    }
-    document.addEventListener('visibilitychange', focus)
     const hash = () => {
       setView(initialView())
       setQuery('')
@@ -76,9 +49,6 @@ export function App() {
     }
     window.addEventListener('hashchange', hash)
     return () => {
-      events.close()
-      clearInterval(poll)
-      document.removeEventListener('visibilitychange', focus)
       window.removeEventListener('hashchange', hash)
     }
   }, [])
@@ -146,7 +116,7 @@ export function App() {
     }
   }
 
-  const index = indexWorkspace(data)
+  const index = useMemo(() => indexWorkspace(data), [data])
   const currentProject = view.type === 'project' ? index.projects.get(view.id) : undefined
   const currentEpic = view.type === 'epic' ? index.epics.get(view.id) : undefined
   const currentTicket = view.type === 'ticket' ? index.tickets.get(view.id) : undefined
@@ -242,8 +212,11 @@ export function App() {
       theme={theme}
       toggleTheme={toggleTheme}
       breadcrumbs={breadcrumbs}
-      error={error}
-      setError={setError}
+      error={error || workspace.error}
+      setError={(message) => {
+        setError(message)
+        if (!message) workspace.clearError()
+      }}
       overlay={
         dialog && (
           <Editor
@@ -326,6 +299,7 @@ export function App() {
           key={currentTicket.id}
           ticket={currentTicket}
           data={data}
+          revision={revision}
           mutate={mutate}
           edit={() => setDialog({ type: 'ticket', item: currentTicket })}
         />
@@ -338,7 +312,11 @@ export function App() {
             </div>
           }
         >
-          <ProjectProgress key={currentProject.id} projectID={currentProject.id} revision={data} />
+          <ProjectProgress
+            key={currentProject.id}
+            projectID={currentProject.id}
+            revision={revision}
+          />
         </Suspense>
       ) : (
         <>

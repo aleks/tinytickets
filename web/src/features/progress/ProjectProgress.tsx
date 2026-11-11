@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, Layers, LoaderCircle } from 'lucide-react'
 
-import { api, errorMessage } from '../../shared/api'
 import { statuses, statusMetadata } from '../../shared/status'
-import type { ProjectExecution } from '../../shared/types'
+import { useProjectExecution } from './useProjectExecution'
 
 export function duration(seconds: number | null): string {
   if (seconds === null) return '—'
@@ -26,33 +25,14 @@ function localTime(value: string | number) {
   })
 }
 
-export function ProjectProgress({ projectID, revision }: { projectID: number; revision: object }) {
-  const [report, setReport] = useState<ProjectExecution | null>(null)
-  const [error, setError] = useState('')
-  const [retry, setRetry] = useState(0)
-  const [now, setNow] = useState(Date.now)
+export function ProjectProgress({ projectID, revision }: { projectID: number; revision: unknown }) {
+  const { report, error, receivedAt, retry } = useProjectExecution(projectID, revision)
+  const [clock, setNow] = useState(Date.now)
+  const now = Math.max(clock, receivedAt)
   const [range, setRange] = useState('all')
   const [hideCompleted, setHideCompleted] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
   const [weekly, setWeekly] = useState(false)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    async function load() {
-      try {
-        const next = await api.projectExecution(projectID, controller.signal)
-        if (!controller.signal.aborted) {
-          setReport(next)
-          setNow(Date.now())
-          setError('')
-        }
-      } catch (err) {
-        if (!controller.signal.aborted) setError(errorMessage(err))
-      }
-    }
-    load()
-    return () => controller.abort()
-  }, [projectID, revision, retry])
 
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 10000)
@@ -63,7 +43,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
     return error ? (
       <div className="form-error" role="alert">
         {error}{' '}
-        <button className="text-button" onClick={() => setRetry(retry + 1)}>
+        <button className="text-button" onClick={retry}>
           Retry
         </button>
       </div>
@@ -111,7 +91,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
       {error && (
         <div className="form-error" role="alert">
           {error}{' '}
-          <button className="text-button" onClick={() => setRetry(retry + 1)}>
+          <button className="text-button" onClick={retry}>
             Retry
           </button>
         </div>

@@ -14,11 +14,13 @@ const MarkdownDescription = lazy(() =>
 export function TicketPage({
   ticket,
   data,
+  revision,
   mutate,
   edit,
 }: {
   ticket: Ticket
   data: Workspace
+  revision: number
   mutate: Mutate
   edit: () => void
 }) {
@@ -112,7 +114,7 @@ export function TicketPage({
             </button>
           )}
         </article>
-        <TicketWorkLog ticketID={ticket.id} revision={data} mutate={mutate} />
+        <TicketWorkLog ticketID={ticket.id} revision={revision} mutate={mutate} />
       </div>
       <aside className="ticket-details" aria-label="Ticket details">
         <h2>Details</h2>
