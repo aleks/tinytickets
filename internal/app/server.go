@@ -111,6 +111,7 @@ func (a *App) Handler(assets fs.FS) http.Handler {
 	})
 	mux.HandleFunc("/api/{kind}", a.collection)
 	mux.HandleFunc("/api/{kind}/{id}", a.item)
+	mux.HandleFunc("/api/{kind}/{id}/deletion-preview", a.deletionPreviewHTTP)
 	mux.Handle("/mcp", mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return a.MCP }, &mcp.StreamableHTTPOptions{Stateless: true}))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { respond(w, nil, missing(), 0) })
 	files := http.FileServer(http.FS(assets))
@@ -370,6 +371,16 @@ func (a *App) item(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "PATCH" && r.Method != "DELETE" {
 		w.Header().Set("Allow", "GET, PATCH, DELETE")
 		respond(w, nil, &APIError{405, "Method not allowed"}, 0)
+		return
+	}
+	if r.Method == "DELETE" {
+		var options DeleteOptions
+		if err := readObjectBody(r, &options); err != nil {
+			respond(w, nil, err, 0)
+			return
+		}
+		out, err := a.Delete(r.Context(), kind, id, options)
+		respond(w, out, err, 200)
 		return
 	}
 	action := "delete"

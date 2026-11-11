@@ -243,6 +243,9 @@ func validStatus(status string) bool {
 
 // Mutate is shared by REST and MCP so both interfaces enforce the same rules.
 func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in Input) (any, error) {
+	if action == "delete" && kind != "links" {
+		return s.Delete(ctx, kind, id, DeleteOptions{})
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if kind != "projects" && kind != "epics" && kind != "tickets" && kind != "links" {
@@ -350,22 +353,6 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 			_, err = tx.ExecContext(ctx, "DELETE FROM links WHERE blocker_id = ? AND blocked_id = ?", in.BlockerID, in.BlockedID)
 		}
 		result = Link{in.BlockerID, in.BlockedID}
-	} else if action == "delete" {
-		if kind == "projects" || kind == "epics" {
-			child, column := "epics", "project_id"
-			if kind == "epics" {
-				child, column = "tickets", "epic_id"
-			}
-			var count int
-			if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM "+child+" WHERE "+column+" = ?", id).Scan(&count); err != nil {
-				return nil, err
-			}
-			if count > 0 {
-				return nil, &APIError{409, "Move or delete the contained " + child + " first"}
-			}
-		}
-		_, err = tx.ExecContext(ctx, "DELETE FROM "+kind+" WHERE id = ?", id)
-		result = map[string]int64{"id": id}
 	} else {
 		if create {
 			var res sql.Result
