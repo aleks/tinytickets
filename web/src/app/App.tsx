@@ -17,6 +17,7 @@ import {
   selectVisibleTickets,
 } from '../features/workspace/selectors'
 import { useWorkspace } from '../features/workspace/useWorkspace'
+import { DeletionDialog } from '../features/deletion/DeletionDialog'
 
 const ProjectProgress = lazy(() =>
   import('../features/progress/ProjectProgress').then((module) => ({
@@ -34,6 +35,12 @@ export function App() {
   const { data, loaded, connected, refresh, revision } = workspace
   const [view, setView] = useState<View>(initialView)
   const [dialog, setDialog] = useState<Dialog | null>(null)
+  const [deletion, setDeletion] = useState<{
+    kind: 'projects' | 'epics'
+    id: number
+    name: string
+    parent: View
+  } | null>(null)
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -105,14 +112,19 @@ export function App() {
       setBusy(false)
     }
   }
-  async function remove(kind: 'projects' | 'epics', id: number) {
-    if (!confirm(`Delete this ${kind === 'projects' ? 'project' : 'epic'}? It must be empty.`))
-      return
-    try {
-      await mutate(kind === 'projects' ? api.deleteProject(id) : api.deleteEpic(id))
-      navigate({ type: kind })
-    } catch (err) {
-      setError(errorMessage(err))
+  function remove(kind: 'projects' | 'epics', id: number) {
+    if (kind === 'projects') {
+      const project = data.projects.find((item) => item.id === id)
+      if (project) setDeletion({ kind, id, name: project.name, parent: { type: 'projects' } })
+    } else {
+      const epic = data.epics.find((item) => item.id === id)
+      if (epic)
+        setDeletion({
+          kind,
+          id,
+          name: epic.title,
+          parent: { type: 'project', id: epic.project_id },
+        })
     }
   }
 
@@ -220,19 +232,35 @@ export function App() {
         if (!message) workspace.clearError()
       }}
       overlay={
-        dialog && (
-          <Editor
-            key={`${dialog.type}-${dialog.item?.id || 'new'}`}
-            dialog={dialog}
-            data={data}
+        deletion ? (
+          <DeletionDialog
+            key={`${deletion.kind}-${deletion.id}`}
+            kind={deletion.kind}
+            id={deletion.id}
+            name={deletion.name}
             mutate={mutate}
-            close={() => setDialog(null)}
-            openTicket={(ticket) => setDialog({ type: 'ticket', item: ticket })}
-            openPage={(ticket) => {
-              setDialog(null)
-              navigate({ type: 'ticket', id: ticket.id })
+            close={() => setDeletion(null)}
+            deleted={() => {
+              setDeletion(null)
+              navigate(deletion.parent)
             }}
           />
+        ) : (
+          dialog && (
+            <Editor
+              key={`${dialog.type}-${dialog.item?.id || 'new'}`}
+              dialog={dialog}
+              data={data}
+              mutate={mutate}
+              close={() => setDialog(null)}
+              deleted={(ticket) => navigate({ type: 'epic', id: ticket.epic_id })}
+              openTicket={(ticket) => setDialog({ type: 'ticket', item: ticket })}
+              openPage={(ticket) => {
+                setDialog(null)
+                navigate({ type: 'ticket', id: ticket.id })
+              }}
+            />
+          )
         )
       }
     >

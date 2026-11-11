@@ -56,6 +56,7 @@ src/
     board/                 board and board ticket cards
     projects/              project/epic listings and fields
     editor/                dialog model, dirty-field submission and editor
+    deletion/              destructive confirmation, impact preview and force opt-in
     tickets/               ticket page, fields, log, column clock and log hook
     markdown/              safe Markdown and lazy Mermaid rendering
     dependencies/          dependency map, pure graph model and local CSS
@@ -79,6 +80,15 @@ navigation and page framing. Hash parsing/link generation are pure and tested;
 existing deep URLs and browser history are preserved. Modal focus and dismissal are
 shared, but field ownership remains with features. Editors submit only changed
 fields so refreshes cannot undo another agent's unrelated edits.
+
+`DeletionDialog` obtains authoritative aggregate impact from the server and sends
+its confirmation token with every delete. Nonempty parents require force opt-in;
+a conflict refreshes the preview and clears that opt-in without retrying the write.
+Other write failures require an explicit fresh preview because the original write
+may already have committed. Ticket deletion temporarily replaces the editor modal
+while retaining editor state, avoiding stacked focus traps and preserving drafts
+on cancellation. The shared Modal supports explicit initial focus (Cancel for
+deletion), excludes disabled controls, and contains focus during pending writes.
 
 ## Live data and invalidation
 

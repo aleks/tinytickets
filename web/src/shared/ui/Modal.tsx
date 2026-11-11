@@ -7,6 +7,7 @@ export function Modal({
   changed,
   close,
   children,
+  initialFocus,
 }: {
   className: string
   labelledBy: string
@@ -14,6 +15,7 @@ export function Modal({
   changed: boolean
   close: () => void
   children: (requestClose: () => void) => ReactNode
+  initialFocus?: string
 }) {
   const modal = useRef<HTMLDivElement>(null)
   const requestClose = () => {
@@ -24,7 +26,7 @@ export function Modal({
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement
-    modal.current?.querySelector<HTMLInputElement>('input')?.focus()
+    modal.current?.querySelector<HTMLElement>(initialFocus || 'input')?.focus()
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -32,9 +34,13 @@ export function Modal({
       }
       if (e.key === 'Tab') {
         const controls = modal.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not(:disabled), input, textarea, select, [tabindex="0"]',
+          'a[href], button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]',
         )
-        if (!controls?.length) return
+        if (!controls?.length) {
+          e.preventDefault()
+          modal.current?.focus()
+          return
+        }
         const first = controls[0],
           last = controls[controls.length - 1]
         if (e.shiftKey && document.activeElement === first) {
@@ -51,7 +57,7 @@ export function Modal({
       document.removeEventListener('keydown', key)
       previous?.focus()
     }
-  }, [])
+  }, [initialFocus])
 
   return (
     <div
@@ -67,6 +73,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
+        tabIndex={-1}
       >
         {children(requestClose)}
       </div>

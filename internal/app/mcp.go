@@ -13,7 +13,7 @@ func addTool[In, Out any](s *mcp.Server, name, description string, fn func(conte
 }
 
 func (a *App) newMCP() *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "tinytickets", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "TinyTickets organizes projects > epics > tickets. Every epic needs a project and every ticket needs an epic. Statuses: todo, in_progress, ready_for_review, done. A link's blocker_id blocks its blocked_id. Completed epics are hidden from the home overview, not deleted. Only completed epics may be archived; unarchive before reopening. Archived work keeps tickets, history, direct links, and aggregate metrics but is hidden from ordinary listings. get_workspace is a complete snapshot including archives; inspect archived flags when listing epics. Use update_epic archived:true/false to archive/restore. Descriptions accept Markdown, including fenced mermaid diagrams, rendered on full ticket pages. Dependencies are informational for ordinary updates. Before starting new work, use claim_next_ticket or claim_ticket, not separate reads and update_ticket(status:in_progress). get_ready_tickets is read-only discovery, not a reservation. Claims atomically require todo, an unfinished/unarchived epic, and every blocker done (including cross-project). If a specific claim fails, refresh and choose again; claimed:false means no ready work in scope. Use update_ticket for edits/subsequent transitions. Claiming starts history/timers but adds no ownership lock, lease, or automatic reassignment; ordinary updates and drag/drop remain supported." + workLogInstructions})
+	s := mcp.NewServer(&mcp.Implementation{Name: "tinytickets", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "TinyTickets organizes projects > epics > tickets. Every epic needs a project and every ticket needs an epic. Statuses: todo, in_progress, ready_for_review, done. A link's blocker_id blocks its blocked_id. Completed epics are hidden from the home overview, not deleted. Only completed epics may be archived; unarchive before reopening. Archived work keeps tickets, history, direct links, and aggregate metrics but is hidden from ordinary listings. get_workspace is a complete snapshot including archives; inspect archived flags when listing epics. Use update_epic archived:true/false to archive/restore. Descriptions accept Markdown, including fenced mermaid diagrams, rendered on full ticket pages. Dependencies are informational for ordinary updates. Before starting new work, use claim_next_ticket or claim_ticket, not separate reads and update_ticket(status:in_progress). get_ready_tickets is read-only discovery, not a reservation. Claims atomically require todo, an unfinished/unarchived epic, and every blocker done (including cross-project). If a specific claim fails, refresh and choose again; claimed:false means no ready work in scope. Use update_ticket for edits/subsequent transitions. Claiming starts history/timers but adds no ownership lock, lease, or automatic reassignment; ordinary updates and drag/drop remain supported." + workLogInstructions + deletionInstructions})
 	addTool(s, "get_workspace", "Read the complete hierarchy-consistent workspace, including completed/archived epics and all their tickets and links. Check each epic's archived flag when building ordinary listings. Use update_epic with archived:false to restore archived work.", func(ctx context.Context, _ struct{}) (State, error) { return a.Store.Snapshot(ctx) })
 	a.addWorkLogTools(s)
 	addTool(s, "get_ready_tickets", "Read ready work, oldest-created first (ID breaks ties). Ready means todo, unfinished/unarchived epic, and all blockers done including cross-project blockers. Optional project_id/epic_id scope. This is a planning snapshot, not a reservation: use claim_ticket or claim_next_ticket before starting.", a.Store.ReadyTickets)
@@ -87,17 +87,6 @@ func (a *App) newMCP() *mcp.Server {
 	addTool(s, "unlink_tickets", "Remove a directed dependency. Idempotent.", func(ctx context.Context, in linkInput) (any, error) {
 		return a.Mutate(ctx, "links", "delete", 0, Input{BlockerID: in.BlockerID, BlockedID: in.BlockedID})
 	})
-	type idInput struct {
-		ID int64 `json:"id"`
-	}
-	addTool(s, "delete_ticket", "Permanently delete a ticket and its dependency links.", func(ctx context.Context, in idInput) (any, error) {
-		return a.Mutate(ctx, "tickets", "delete", in.ID, Input{})
-	})
-	addTool(s, "delete_epic", "Delete an empty epic. Move or delete its tickets first; use update_epic to mark it completed instead.", func(ctx context.Context, in idInput) (any, error) {
-		return a.Mutate(ctx, "epics", "delete", in.ID, Input{})
-	})
-	addTool(s, "delete_project", "Delete an empty project. Move or delete its epics first.", func(ctx context.Context, in idInput) (any, error) {
-		return a.Mutate(ctx, "projects", "delete", in.ID, Input{})
-	})
+	a.addDeletionTools(s)
 	return s
 }

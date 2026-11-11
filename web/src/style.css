@@ -15,4 +15,5 @@
 @import './features/tickets/ticket.css';
 @import './shared/ui/markdown.css';
 @import './shared/ui/editor.css';
+@import './features/deletion/deletion.css';
 @import './styles/responsive.css';

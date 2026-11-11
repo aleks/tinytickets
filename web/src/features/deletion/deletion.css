@@ -1,0 +1,28 @@
+.deletion-modal {
+  font-size: 13px;
+}
+.deletion-name {
+  overflow-wrap: anywhere;
+}
+.deletion-counts {
+  padding-left: 20px;
+  margin-top: 8px;
+  line-height: 1.7;
+}
+.deletion-force {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.deletion-force input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.deletion-warning {
+  color: var(--secondary);
+  line-height: 1.5;
+}
+.button.deletion-submit {
+  background: var(--danger);
+  color: var(--bg);
+}
