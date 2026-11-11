@@ -1,4 +1,5 @@
-import { Archive, ArchiveRestore, ArrowUpRight, Layers, Plus } from 'lucide-react'
+import { useId, useState } from 'react'
+import { Archive, ArrowUpRight, Layers, Plus } from 'lucide-react'
 import type { Project, Epic, Workspace } from '../../shared/types'
 import { SearchField } from '../../shared/ui/SearchField'
 import { EpicCard } from './EpicCard'
@@ -17,8 +18,6 @@ export function EpicList({
   allArchivedEpics,
   archivedEpics,
   navigate,
-  busy,
-  archive,
 }: {
   view: View
   data: Workspace
@@ -31,9 +30,18 @@ export function EpicList({
   allArchivedEpics: Epic[]
   archivedEpics: Epic[]
   navigate: (view: View) => void
-  busy: boolean
-  archive: (epic: Epic, archived: boolean) => void
 }) {
+  const [showArchived, setShowArchived] = useState(false)
+  const epicGridID = useId()
+  const projectArchives = view.type === 'project' && allArchivedEpics.length > 0
+  const includeArchived = view.type === 'project' && showArchived
+  const listingCount = listingEpics.length + (includeArchived ? allArchivedEpics.length : 0)
+  const displayedEpics = includeArchived
+    ? [...filteredEpics, ...archivedEpics].sort(
+        (a, b) => Number(a.completed) - Number(b.completed) || b.id - a.id,
+      )
+    : filteredEpics
+
   return (
     <>
       {view.type !== 'epic' && (
@@ -42,15 +50,27 @@ export function EpicList({
           aria-label={view.type === 'epics' ? 'Active and completed epics' : undefined}
         >
           <div className="section-heading">
-            <h2>
-              <Layers size={17} />
-              {view.type === 'epics'
-                ? 'Active & completed epics'
-                : view.type === 'home'
-                  ? 'Active epics'
-                  : 'Epics'}
-              <span className="count">{listingEpics.length}</span>
-            </h2>
+            <div className="epic-list-heading">
+              <h2>
+                <Layers size={17} />
+                {view.type === 'epics'
+                  ? 'Active & completed epics'
+                  : view.type === 'home'
+                    ? 'Active epics'
+                    : 'Epics'}
+                <span className="count">{listingCount}</span>
+              </h2>
+              {projectArchives && (
+                <button
+                  className="text-button"
+                  aria-expanded={showArchived}
+                  aria-controls={epicGridID}
+                  onClick={() => setShowArchived((previous) => !previous)}
+                >
+                  {showArchived ? 'Hide' : 'Show'} archived epics ({allArchivedEpics.length})
+                </button>
+              )}
+            </div>
             {view.type === 'epics' ? (
               <SearchField value={query} onChange={setQuery} placeholder="Find an epic…" />
             ) : (
@@ -69,8 +89,8 @@ export function EpicList({
               </button>
             )}
           </div>
-          <div className="epic-grid">
-            {filteredEpics.map((e) => (
+          <div className="epic-grid" id={epicGridID}>
+            {displayedEpics.map((e) => (
               <EpicCard
                 key={e.id}
                 epic={e}
@@ -78,7 +98,7 @@ export function EpicList({
                 onClick={() => navigate({ type: 'epic', id: e.id })}
               />
             ))}
-            {!listingEpics.length && (
+            {!listingCount && (
               <button
                 className="empty-epic"
                 onClick={() =>
@@ -96,7 +116,8 @@ export function EpicList({
                   <strong>
                     {view.type === 'home' && data.epics.length
                       ? 'All epics completed'
-                      : view.type === 'epics' && allArchivedEpics.length
+                      : (view.type === 'epics' || view.type === 'project') &&
+                          allArchivedEpics.length
                         ? 'No unarchived epics'
                         : 'No epics yet'}
                   </strong>
@@ -108,7 +129,7 @@ export function EpicList({
                 <Plus size={18} />
               </button>
             )}
-            {query && listingEpics.length > 0 && !filteredEpics.length && (
+            {query && listingCount > 0 && !displayedEpics.length && (
               <p className="muted">No matching epics.</p>
             )}
           </div>
@@ -124,22 +145,12 @@ export function EpicList({
           </div>
           <div className="epic-grid">
             {archivedEpics.map((e) => (
-              <div className="archived-epic-entry" key={e.id}>
-                <EpicCard
-                  epic={e}
-                  data={data}
-                  onClick={() => navigate({ type: 'epic', id: e.id })}
-                />
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => archive(e, false)}
-                  aria-label={`Unarchive ${e.title}`}
-                >
-                  <ArchiveRestore size={14} />
-                  Unarchive
-                </button>
-              </div>
+              <EpicCard
+                key={e.id}
+                epic={e}
+                data={data}
+                onClick={() => navigate({ type: 'epic', id: e.id })}
+              />
             ))}
           </div>
           {!archivedEpics.length && (

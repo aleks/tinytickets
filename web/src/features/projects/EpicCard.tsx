@@ -15,7 +15,10 @@ export function EpicCard({
   const percent = tickets.length ? Math.round((done / tickets.length) * 100) : 0
   const projectIndex = data.projects.findIndex((p) => p.id === epic.project_id)
   return (
-    <button className={`epic-card ${epic.completed ? 'is-completed' : ''}`} onClick={onClick}>
+    <button
+      className={`epic-card ${epic.completed ? 'is-completed' : ''} ${epic.archived ? 'is-archived' : ''}`}
+      onClick={onClick}
+    >
       <div className="epic-card-top">
         <span className={`project-label color-${projectIndex % 5}`}>
           <span className="project-dot" />

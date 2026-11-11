@@ -1,6 +1,149 @@
 import assert from 'node:assert/strict'
-import { test } from './fixtures'
+import { test, expect } from './fixtures'
 import { api } from './helpers/api'
+
+test('project archive toggle is scoped, keyboard accessible, and preserves ordinary board filtering', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create, patch } = api(page.request, url)
+  const project = await create('projects', { name: 'Project with archives' })
+  const other = await create('projects', { name: 'Other project with archives' })
+  await create('epics', { project_id: project.id, title: 'Ordinary epic' })
+  const archived = await create('epics', {
+    project_id: project.id,
+    title: 'Local archived epic',
+    completed: true,
+    archived: true,
+  })
+  await create('tickets', { epic_id: archived.id, title: 'Archived ticket stays off board' })
+  await create('epics', {
+    project_id: other.id,
+    title: 'Other archived epic',
+    completed: true,
+    archived: true,
+  })
+  await page.goto(`${url}/#project/${project.id}`)
+  const epics = page.locator('.epics-section')
+  const archives = epics.locator('.epic-grid')
+  const archivedCard = archives.getByRole('heading', { name: archived.title, exact: true })
+  const toggle = page.getByRole('button', { name: 'Show archived epics (1)', exact: true })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(epics.locator('.section-heading h2 .count')).toHaveText('1')
+  await expect(
+    epics
+      .locator('.epic-list-heading')
+      .getByRole('button', { name: 'Show archived epics (1)', exact: true }),
+  ).toBeVisible()
+  await expect(archivedCard).toHaveCount(0)
+  await toggle.focus()
+  await page.keyboard.press('Enter')
+  const hide = page.getByRole('button', { name: 'Hide archived epics (1)', exact: true })
+  await expect(hide).toHaveAttribute('aria-expanded', 'true')
+  const sectionID = await hide.getAttribute('aria-controls')
+  await expect(archives).toHaveAttribute('id', sectionID!)
+  await expect(epics.locator('.section-heading h2 .count')).toHaveText('2')
+  await expect(page.locator('.epic-grid')).toHaveCount(1)
+  await expect(page.getByRole('region', { name: 'Archived epics', exact: true })).toHaveCount(0)
+  await expect(archives.getByRole('heading', { name: archived.title, exact: true })).toBeVisible()
+  await expect(archives.locator('.epic-card.is-archived')).toContainText(archived.title)
+  await expect(archives.locator('.epic-card h3')).toHaveText(['Ordinary epic', archived.title])
+  await expect(archives.getByRole('button', { name: /^Unarchive/ })).toHaveCount(0)
+  await expect(page.locator('.epic-card')).toHaveCount(2)
+  await expect(page.locator('.ticket-card')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Other archived epic', exact: true })).toHaveCount(
+    0,
+  )
+  await hide.focus()
+  await page.keyboard.press('Space')
+  await expect(archivedCard).toHaveCount(0)
+  await expect(epics.locator('.section-heading h2 .count')).toHaveText('1')
+  await expect(archives.locator('.epic-card')).toHaveCount(1)
+  await toggle.click()
+
+  // Expansion is local to a project, not inherited by another project or persisted on reload.
+  await page.goto(`${url}/#project/${other.id}`)
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+  await expect(
+    archives.getByRole('heading', { name: 'Other archived epic', exact: true }),
+  ).toBeVisible()
+  await page.goto(`${url}/#project/${project.id}`)
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+  await page.reload()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+
+  const search = page.getByRole('textbox', { name: 'Search tickets', exact: true })
+  await search.fill('Local archived')
+  await expect(archives.locator('.epic-card h3')).toHaveText([archived.title])
+  await search.fill('No matching epic')
+  await expect(epics.getByText('No matching epics.', { exact: true })).toBeVisible()
+  await search.fill('')
+
+  await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(hide).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await archives.getByRole('heading', { name: archived.title, exact: true }).click()
+  await page.getByRole('button', { name: 'Unarchive epic', exact: true }).click()
+  await page.goto(`${url}/#project/${project.id}`)
+  await expect(page.getByRole('button', { name: /archived epics \(/ })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: archived.title, exact: true })).toBeVisible()
+  await expect(page.locator('.epic-card').filter({ hasText: archived.title })).toContainText(
+    'Completed',
+  )
+
+  // An archive arriving via live refresh exposes the control without changing the board.
+  await patch('epics', archived.id, { archived: true })
+  await expect(toggle).toBeVisible()
+  await expect(page.locator('.ticket-card')).toHaveCount(0)
+  await toggle.click()
+  await archives.getByRole('heading', { name: archived.title, exact: true }).click()
+  await expect(page).toHaveURL(`${url}/#epic/${archived.id}`)
+  await expect(page.getByRole('button', { name: 'Unarchive epic', exact: true })).toBeVisible()
+})
+
+test('an archive-only project exposes its empty archived epic for deletion before deleting the project', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create } = api(page.request, url)
+  const project = await create('projects', { name: 'Archive-only deletion project' })
+  const archived = await create('epics', {
+    project_id: project.id,
+    title: 'Empty archived epic',
+    completed: true,
+    archived: true,
+  })
+  const empty = await create('projects', { name: 'Actually empty project' })
+  await page.goto(`${url}/#project/${project.id}`)
+  await expect(page.getByText('No unarchived epics', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Show archived epics (1)', exact: true }).click()
+  await expect(page.getByText('No unarchived epics', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.epics-section .section-heading h2 .count')).toHaveText('1')
+  await page
+    .locator('.epics-section .epic-grid')
+    .getByRole('heading', { name: archived.title, exact: true })
+    .click()
+  await page.getByLabel('Epic options', { exact: true }).click()
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Delete epic', exact: true }).click()
+  await expect(page).toHaveURL(`${url}/#epics`)
+  expect((await page.request.get(`${url}/api/epics/${archived.id}`)).status()).toBe(404)
+  await page.goto(`${url}/#project/${project.id}`)
+  await expect(page.getByText('No epics yet', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /archived epics \(/ })).toHaveCount(0)
+  await page.getByLabel('Project options', { exact: true }).click()
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Delete project', exact: true }).click()
+  await expect(page).toHaveURL(`${url}/#projects`)
+  expect((await page.request.get(`${url}/api/projects/${project.id}`)).status()).toBe(404)
+  await page.goto(`${url}/#project/${empty.id}`)
+  await expect(page.getByText('No epics yet', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /archived epics \(/ })).toHaveCount(0)
+})
 
 test('archiving preserves data, links, metrics, editing and direct access', async ({
   page,
@@ -204,7 +347,10 @@ test('archiving preserves data, links, metrics, editing and direct access', asyn
   await search.fill('Archive candidate')
   await archived.getByRole('heading', { name: 'Archive candidate', exact: true }).waitFor()
   await search.fill('')
-  await archived.getByRole('button', { name: 'Unarchive Archive candidate', exact: true }).click()
+  await expect(archived.getByRole('button', { name: /^Unarchive/ })).toHaveCount(0)
+  await archived.getByRole('heading', { name: 'Archive candidate', exact: true }).click()
+  await page.getByRole('button', { name: 'Unarchive epic', exact: true }).click()
+  await page.goto(`${url}/#epics`)
   await ordinary.getByRole('heading', { name: 'Archive candidate', exact: true }).waitFor()
   assert.equal(
     await archived.getByRole('heading', { name: 'Archive candidate', exact: true }).count(),
@@ -242,7 +388,9 @@ test('archiving preserves data, links, metrics, editing and direct access', asyn
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`${url}/#epics`)
-  await page.getByRole('button', { name: 'Unarchive Only archived epic', exact: true }).click()
+  await archived.getByRole('heading', { name: 'Only archived epic', exact: true }).click()
+  await page.getByRole('button', { name: 'Unarchive epic', exact: true }).click()
+  await page.goto(`${url}/#epics`)
   await ordinary.getByRole('heading', { name: 'Only archived epic', exact: true }).waitFor()
   assert.equal(
     (await (await page.request.get(`${url}/api/epics/${onlyEpic.id}`)).json()).archived,
