@@ -49,7 +49,8 @@ The database defaults to `~/.tinytickets/tinytickets.db`. Parent directories are
 - Completed epics can additionally be **archived**. Archived epics and their tickets disappear from ordinary sidebar/project/board listings, epic assignment options, and project timeline rows. The **Epics** page separates active/completed epics from an **Archived epics** section. Search covers both sections. Open an archived epic's page to unarchive it; archive controls are also available on completed epic pages and in the epic editor.
 - A project's Board tab has a **Show archived epics** toggle beside the **Epics** heading when that project has archives. It includes archived cards in the same epic list and updates the heading count. Open an archived epic's page to restore it or delete it when empty before deleting the project. Archives stay hidden by default; showing their cards does not add their tickets to the board.
 - Archiving preserves tickets, links, status history, and direct epic/ticket URLs. Direct pages clearly show archive state and allow restoration; existing tickets remain editable. A current archived parent is retained as a disabled selection when editing its ticket, not offered as a new assignment. Only completed epics can be archived, and an epic must be unarchived before reopening; unarchive preserves its completed state. An atomic `{"archived":false,"completed":false}` update can restore and reopen together. The database also enforces this invariant for older/direct writers.
-- Projects and epics can only be deleted when empty. Ticket deletion removes its links, status history, and work log. Archiving preserves log entries and intentional access to read/append them.
+- Deletion opens a confirmation modal with aggregate counts, not a list of children. Nonempty projects/epics require an unchecked-by-default **Force delete** checkbox to include their contents, including completed/archived work. Empty parents and tickets need no force checkbox. Deletion permanently removes affected tickets' links, status history, work logs and review handoffs, including their contribution to metrics. Archiving preserves this data instead.
+- Linked tickets outside the deleted hierarchy survive, but their links to deleted tickets disappear and some may become ready. A warning makes this explicit. If the deletion scope changes while confirming, nothing is deleted and the modal refreshes its preview and clears Force delete. Failed writes are never automatically retried; refresh their preview before confirming again. Cancelling ticket deletion retains unsaved editor fields.
 - Light/dark mode initially follows your system preference; the toggle saves an explicit choice locally.
 - The color picker beside the theme toggle offers five muted accents: Sage (default), Slate, Lavender, Clay, and Sand. In dark mode, backgrounds, borders, and text neutrals also follow the selected palette. The choice applies in both modes and is saved locally alongside your theme preference.
 - Server-sent events refresh the board after REST/MCP changes. A SQLite watcher also detects writes from separate stdio processes (within about one second). A 15-second polling fallback handles buffered streams; reconnecting or waking the tab triggers a fresh snapshot.
@@ -148,12 +149,22 @@ The official Go MCP SDK supplies protocol negotiation, tool schemas, validation,
 | `add_work_log` | Append Markdown `body` for `ticket_id`, optional `author`; preserves description/status/timing |
 | `create_review_handoff` | Append `summary`, `verification`, optional `references`, `review_notes`, `author` for `ticket_id`, and atomically move to review; returns `{ "entry": {...}, "ticket": {...} }` |
 | `get_project_execution` | Execution segments, project/epic/ticket metrics, coverage, and UTC completion buckets for `project_id` |
+| `get_deletion_preview` | Aggregate permanent-deletion impact for `kind` (`projects`, `epics`, `tickets`) and `id`; returns counts, `requires_force`, and `confirmation_token` |
 | `create_project`, `update_project`, `delete_project` | Manage projects |
 | `create_epic`, `update_epic`, `delete_epic` | Manage epics; `completed: true` removes them from home; `archived: true` hides completed epics from ordinary listings; `archived: false` restores them |
 | `create_ticket`, `update_ticket`, `delete_ticket` | Manage tickets and change status |
 | `link_tickets`, `unlink_tickets` | Set/remove a dependency using `blocker_id` and `blocked_id` |
 
 Updates are partial: omitted fields stay unchanged. IDs are positive integers. Dependency creation/removal is idempotent. `get_workspace` is intentionally a full snapshot suitable for small workspaces, rather than a paginated issue-tracker API.
+
+Deletion defaults remain safe: `delete_project` and `delete_epic` reject nonempty
+parents unless explicitly passed `force: true` and a current `confirmation_token`
+from `get_deletion_preview`. Every `delete_*` accepts these optional fields in
+addition to `id`. Force always requires a token; any supplied token is checked
+atomically even without force. On changed impact, review a new preview and obtain
+confirmation again—do not silently substitute a new token and retry. Previewing
+does not grant authorization to delete. Prefer completion/archiving when retaining
+work history is appropriate.
 
 ### Preferred agent workflow
 
@@ -183,6 +194,7 @@ All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error":
 | GET / POST | `/api/tickets/{id}/work-log` | GET: `{ "ticket_id": 1, "entries": [...] }`; POST: `{ "body": "Implemented feature; tests passed", "author": "Agent" }`, optional `author`; returns created entry (`201`) |
 | POST | `/api/tickets/{id}/review-handoff` | `{ "summary": "What changed", "verification": "Checks/results", "references": "Commit/artifact links", "review_notes": "What to check", "author": "Agent" }`; only summary/verification required; returns entry and updated ticket (`201`) |
 | GET | `/api/projects/{id}/execution` | Project, `generated_at`, aggregate `metrics`, unarchived epic/ticket rows, `epics_archived` count, and `daily_completions`/`weekly_completions`; aggregates include archives; durations are seconds, unknown start-dependent values are `null` |
+| GET | `/api/{kind}/{id}/deletion-preview` | `kind`: `projects`, `epics`, or `tickets`; aggregate deletion impact and confirmation token; no mutation |
 | GET / POST | `/api/projects` | Create: `{ "name": "Website" }` |
 | GET / PATCH / DELETE | `/api/projects/{id}` | Update: `{ "name": "New name" }` |
 | GET / POST | `/api/epics` | Create: `{ "project_id": 1, "title": "Launch" }`; optional `completed`, `archived`; GET defaults to unarchived epics, filters: `project_id`, `completed=true\|false`, `archived=true\|false`, `include_archived=true` |
@@ -192,7 +204,63 @@ All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error":
 | GET / POST / DELETE | `/api/links` | POST/DELETE: `{ "blocker_id": 1, "blocked_id": 2 }` |
 | GET | `/api/events` | SSE `change` events; fetch `/api/state` after each event |
 
-Status values are `todo`, `in_progress`, `ready_for_review`, `done`. Titles/names are trimmed and limited to 200 characters; descriptions to 100,000 bytes. `description` defaults to empty and `status` to `todo`. Project/epic deletion returns `409` when nonempty. Dependencies can cross epic/project boundaries.
+Status values are `todo`, `in_progress`, `ready_for_review`, `done`. Titles/names are trimmed and limited to 200 characters; descriptions to 100,000 bytes. `description` defaults to empty and `status` to `todo`. Project/epic deletion returns `409` when nonempty unless explicitly force-confirmed as described below. Dependencies can cross epic/project boundaries.
+
+### Deletion previews and force confirmation
+
+`GET /api/{kind}/{id}/deletion-preview` returns:
+
+```json
+{
+  "kind": "projects",
+  "id": 42,
+  "name": "Example project",
+  "requires_force": true,
+  "confirmation_token": "<opaque token>",
+  "counts": {
+    "epics": 2,
+    "tickets": 5,
+    "archived_epics": 1,
+    "work_log_entries": 7,
+    "status_events": 12,
+    "dependency_links": 3,
+    "external_dependency_links": 1
+  }
+}
+```
+
+Counts include completed and archived work. `epics` and `tickets` count
+**descendants**, not the root being deleted. Work-log entries include review
+handoffs; status events and links include those attached to the root ticket.
+`archived_epics` counts archived epics in the scope, including an archived epic
+root. `external_dependency_links` counts links with exactly one endpoint in the
+scope; the survivor may belong to the same project. Dependency links are counted
+once, even when both tickets are deleted.
+
+DELETE requests accept an optional JSON body:
+
+```json
+{ "force": true, "confirmation_token": "<token from the reviewed preview>" }
+```
+
+- Without options, empty-parent and ticket deletes retain their original behavior;
+  nonempty parents return `409`. Force defaults to `false`.
+- Force requires a nonempty token (`400` otherwise). Supplied tokens must match the
+  current impact (`409` if stale), including exact resource identities—not just
+  aggregate counts. UI deletes always include a token, including empty targets.
+- The server reserves the SQLite writer before validating and deleting, including
+  across HTTP/stdio processes sharing a database. Children and parent are removed
+  in one transaction; any failure rolls back the entire operation. Existing
+  foreign-key restrictions remain, with no database schema migration.
+- Changes to affected resources, membership, logs, history or links can invalidate
+  confirmation. Refetch and explicitly reconfirm; do not automatically retry a
+  destructive request or reuse a newly fetched token without review.
+- Success returns `{ "id": 42 }`; a missing/already-deleted target returns `404`.
+  An interrupted response does not prove deletion failed—check current state.
+- This is permanent deletion, not a trash/undo facility. External tickets survive;
+  only incident links are removed. Deleted work no longer contributes to metrics.
+
+### Ticket history, logs, and archives
 
 Ticket responses (workspace snapshots, REST reads/mutations, and MCP) include read-only `status_since`: the timestamp of the latest known entry into the current `in_progress` or `ready_for_review` column, or `null` for todo/done/unknown legacy entry times. Creation directly in a timed column is a known entry. This is derived from existing status history without a schema upgrade; neither `created_at` nor `updated_at` is substituted for a missing entry event.
 
@@ -235,6 +303,13 @@ Tests cover persistence, hierarchy validation, status transitions, dependency cy
 Ready-work tests cover cross-project blockers, completed/archived epics, ordering/scopes, stale selections, explicit empty results, concurrent claims through independent stores and processes, history/timer anchors, notifications, and REST/MCP validation. No database schema upgrade is required for claiming.
 
 Work-log tests cover v3 upgrades/marker repair, persistence, append-only database constraints and ticket deletion, independent concurrent writers, input limits, handoff rollback atomicity, history/timer preservation, REST and HTTP/stdio MCP. Browser regressions cover chronological mixed entries, live remote appends/draft preservation, handoff forms/status, retries, Markdown safety, archives, ticket navigation, both themes and mobile layouts.
+
+Deletion tests cover safe defaults, force/token validation, same-count scope
+replacement, cross-process writer serialization, rollback on parent-delete failure,
+archived descendants, surviving external tickets/readiness, HTTP and HTTP/stdio MCP.
+Browser tests cover force gating, stale re-confirmation, one active focus trap,
+draft cancellation, in-flight dismissal/duplicate guards, error recovery without
+write retries, parent navigation, and mobile dark-mode modal bounds.
 
 Dependency-map model tests cover deterministic non-overlapping fork/join layout, overhead routing and separate connection ports for long arrows, global readiness, external/archive expansion, chain focus versus siblings, hidden completed blockers, empty graphs, cycle recovery and iterative 4,000-ticket chains. They run with `npm test`; `make check` explicitly runs both unit and browser suites. Browser tests compare map readiness with the backend, verify arrow direction, live claims/status/link/epic/deletion changes, direct URLs/history, keyboard selection and ticket links, zoom/fit/scroll, safe titles, empty/archive states and both mobile themes.
 

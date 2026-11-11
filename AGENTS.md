@@ -13,6 +13,7 @@ When the TinyTickets MCP server is available, use it to track **all work on this
 - Represent dependencies with `link_tickets` when useful.
 - Use `ready_for_review` when waiting for review and `done` when work is finished and verified. Include relevant commit hashes and test results in completion notes. Never mark unfinished or failing work as done.
 - Complete an epic only when its scope is finished; reopen it when adding follow-up work. Keep the tracker updated as work progresses, not just in the final response.
+- Before permanent deletion, use `get_deletion_preview` to review the full scope, including archived work, logs/history and dependency links. Nonempty parents require explicit `force: true` plus that preview's `confirmation_token`; do not infer permission to cascade from a request to delete an empty item. If impact changes, obtain a fresh preview and confirmation rather than silently retrying. Never automatically retry a destructive request after an interrupted response; verify current state first. Prefer completing/archiving work when its history should be retained.
 - If MCP is unavailable, mention that limitation and continue with a brief progress summary in the conversation. Reconcile the tracker when MCP becomes available; do not silently substitute direct database edits for MCP tracking.
 
 ## Development and commits
