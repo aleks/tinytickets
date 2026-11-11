@@ -1,14 +1,10 @@
-export type MapTicket = { id: number; epic_id: number; title: string; status: string }
-export type MapEpic = {
-  id: number
-  project_id: number
-  title: string
-  completed: boolean
-  archived: boolean
-}
-export type MapLink = { blocker_id: number; blocked_id: number }
+import type { Epic, Link, Project, Ticket } from './shared/types'
+
+export type MapTicket = Pick<Ticket, 'id' | 'epic_id' | 'title' | 'status'>
+export type MapEpic = Epic
+export type MapLink = Link
 export type MapWorkspace = {
-  projects: { id: number; name: string }[]
+  projects: Project[]
   epics: MapEpic[]
   tickets: MapTicket[]
   links: MapLink[]

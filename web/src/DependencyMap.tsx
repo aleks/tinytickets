@@ -1,16 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'react'
-import {
-  ArrowRight,
-  ArrowUpRight,
-  CheckCheck,
-  Circle,
-  CircleDot,
-  CheckCircle2,
-  GitBranch,
-  Minus,
-  Plus,
-  X,
-} from 'lucide-react'
+import { ArrowRight, ArrowUpRight, GitBranch, Minus, Plus, X } from 'lucide-react'
 import {
   buildDependencyMap,
   dependencyChain,
@@ -19,19 +8,7 @@ import {
   type MapWorkspace,
 } from './dependencyGraph'
 import './dependency-map.css'
-
-const statusLabels: Record<string, string> = {
-  todo: 'Todo',
-  in_progress: 'In progress',
-  ready_for_review: 'Ready for review',
-  done: 'Done',
-}
-const statusIcons = {
-  todo: Circle,
-  in_progress: CircleDot,
-  ready_for_review: CheckCircle2,
-  done: CheckCheck,
-}
+import { statusMetadata } from './shared/status'
 
 export function DependencyMap({ projectID, data }: { projectID: number; data: MapWorkspace }) {
   const [selectedID, setSelectedID] = useState<number | null>(null)
@@ -301,7 +278,7 @@ export function DependencyMap({ projectID, data }: { projectID: number; data: Ma
                     </svg>
                     {graph.nodes.map((node) => {
                       const t = node.ticket,
-                        Icon = statusIcons[t.status as keyof typeof statusIcons] || Circle
+                        Icon = statusMetadata[t.status].icon
                       const state = node.ready ? 'ready' : node.blocked ? 'blocked' : t.status
                       return (
                         <div
@@ -326,7 +303,7 @@ export function DependencyMap({ projectID, data }: { projectID: number; data: Ma
                               <span className="ticket-id">TT-{t.id}</span>
                               <span className="map-node-status">
                                 <Icon size={12} />
-                                {statusLabels[t.status]}
+                                {statusMetadata[t.status].label}
                               </span>
                             </span>
                             <strong className="map-node-title" title={t.title}>
@@ -429,7 +406,7 @@ export function DependencyMap({ projectID, data }: { projectID: number; data: Ma
             </div>
             <p className="dependency-selected-title">{selected.title}</p>
             <p className="muted">
-              {statusLabels[selected.status]}
+              {statusMetadata[selected.status].label}
               {!nodeByID.has(selected.id) ? ' · Hidden by current filters' : ''}
             </p>
             {(['Blocked by', 'Blocks'] as const).map((label, i) => (
@@ -445,7 +422,7 @@ export function DependencyMap({ projectID, data }: { projectID: number; data: Ma
                         {t.title}
                       </a>
                       <span>
-                        {statusLabels[t.status]}
+                        {statusMetadata[t.status].label}
                         {i === 0 ? (t.status === 'done' ? ' · Satisfied' : ' · Unfinished') : ''}
                       </span>
                     </li>

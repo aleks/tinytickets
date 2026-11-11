@@ -6,10 +6,8 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Check,
-  CheckCheck,
   CheckCircle2,
   ChevronDown,
-  Circle,
   CircleDot,
   Folder,
   FolderPlus,
@@ -31,6 +29,17 @@ import {
 import './style.css'
 import { TicketColumnTimer } from './TicketColumnTimer'
 import { TicketWorkLog } from './TicketWorkLog'
+import { api, errorMessage, type Mutate } from './shared/api'
+import { statuses as columns, isStatus } from './shared/status'
+import type {
+  Project,
+  Epic,
+  Status,
+  Ticket,
+  Link,
+  Workspace,
+  UpdateTicketInput,
+} from './shared/types'
 
 const MarkdownDescription = lazy(() =>
   import('./MarkdownDescription').then((module) => ({ default: module.MarkdownDescription })),
@@ -42,21 +51,6 @@ const DependencyMap = lazy(() =>
   import('./DependencyMap').then((module) => ({ default: module.DependencyMap })),
 )
 
-type Project = { id: number; name: string }
-type Epic = { id: number; project_id: number; title: string; completed: boolean; archived: boolean }
-type Status = 'todo' | 'in_progress' | 'ready_for_review' | 'done'
-type Ticket = {
-  id: number
-  epic_id: number
-  title: string
-  description: string
-  status: Status
-  created_at: string
-  updated_at: string
-  status_since: string | null
-}
-type Link = { blocker_id: number; blocked_id: number }
-type Workspace = { projects: Project[]; epics: Epic[]; tickets: Ticket[]; links: Link[] }
 type View =
   | { type: 'home' }
   | { type: 'projects' }
@@ -68,12 +62,6 @@ type Dialog =
   | { type: 'project'; item?: Project }
   | { type: 'epic'; item?: Epic; projectId?: number }
   | { type: 'ticket'; item?: Ticket; epicId?: number; status?: Status }
-const columns: { status: Status; label: string; icon: typeof Circle }[] = [
-  { status: 'todo', label: 'Todo', icon: Circle },
-  { status: 'in_progress', label: 'In progress', icon: CircleDot },
-  { status: 'ready_for_review', label: 'Ready for review', icon: CheckCircle2 },
-  { status: 'done', label: 'Done', icon: CheckCheck },
-]
 const empty: Workspace = { projects: [], epics: [], tickets: [], links: [] }
 const accents = [
   { id: 'sage', label: 'Sage', color: '#3c6957' },
@@ -82,17 +70,6 @@ const accents = [
   { id: 'clay', label: 'Clay', color: '#916956' },
   { id: 'sand', label: 'Sand', color: '#85713e' },
 ] as const
-
-async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const res = await fetch(`/api/${path}`, {
-    method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Request failed')
-  return data
-}
 
 function initialView(): View {
   const path = location.hash.slice(1).split('/')
@@ -135,13 +112,13 @@ function App() {
   async function refresh() {
     const n = ++requestNumber.current
     try {
-      const next = await api<Workspace>('state')
+      const next = await api.workspace()
       if (n === requestNumber.current) {
         setData(next)
         setLoaded(true)
       }
     } catch (err) {
-      if (n === requestNumber.current) setError((err as Error).message)
+      if (n === requestNumber.current) setError(errorMessage(err))
     }
   }
 
@@ -187,8 +164,8 @@ function App() {
       /* storage may be disabled */
     }
   }
-  async function mutate(path: string, method: string, body?: unknown) {
-    const result = await api(path, method, body)
+  async function mutate<T>(operation: Promise<T>): Promise<T> {
+    const result = await operation
     await refresh()
     return result
   }
@@ -196,18 +173,18 @@ function App() {
     const ticket = data.tickets.find((t) => t.id === id)
     if (!ticket || ticket.status === status) return
     try {
-      await mutate(`tickets/${id}`, 'PATCH', { status })
+      await mutate(api.updateTicket(id, { status }))
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     }
   }
   async function complete(epic: Epic) {
     if (busy) return
     setBusy(true)
     try {
-      await mutate(`epics/${epic.id}`, 'PATCH', { completed: !epic.completed })
+      await mutate(api.updateEpic(epic.id, { completed: !epic.completed }))
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }
@@ -216,9 +193,9 @@ function App() {
     if (busy) return
     setBusy(true)
     try {
-      await mutate(`epics/${epic.id}`, 'PATCH', { archived })
+      await mutate(api.updateEpic(epic.id, { archived }))
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }
@@ -227,10 +204,10 @@ function App() {
     if (!confirm(`Delete this ${kind === 'projects' ? 'project' : 'epic'}? It must be empty.`))
       return
     try {
-      await mutate(`${kind}/${id}`, 'DELETE')
+      await mutate(kind === 'projects' ? api.deleteProject(id) : api.deleteEpic(id))
       navigate({ type: kind })
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     }
   }
 
@@ -1233,7 +1210,6 @@ function TicketCard({
   )
 }
 
-type Mutate = (path: string, method: string, body?: unknown) => Promise<unknown>
 function TicketPage({
   ticket,
   data,
@@ -1251,13 +1227,13 @@ function TicketPage({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function update(body: Record<string, unknown>) {
+  async function update(body: UpdateTicketInput) {
     setSaving(true)
     setError('')
     try {
-      await mutate(`tickets/${ticket.id}`, 'PATCH', body)
+      await mutate(api.updateTicket(ticket.id, body))
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -1267,9 +1243,9 @@ function TicketPage({
     setSaving(true)
     setError('')
     try {
-      await mutate(`epics/${epic.id}`, 'PATCH', { archived: false })
+      await mutate(api.updateEpic(epic.id, { archived: false }))
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -1350,7 +1326,9 @@ function TicketPage({
             aria-label="Status"
             value={ticket.status}
             disabled={saving}
-            onChange={(e) => update({ status: e.target.value })}
+            onChange={(e) => {
+              if (isStatus(e.target.value)) update({ status: e.target.value })
+            }}
           >
             {columns.map((c) => (
               <option key={c.status} value={c.status}>
@@ -1545,33 +1523,49 @@ function Editor({
     setSaving(true)
     setError('')
     try {
-      const kind =
-        dialog.type === 'project' ? 'projects' : dialog.type === 'epic' ? 'epics' : 'tickets'
-      const body: Record<string, unknown> =
-        dialog.type === 'project'
-          ? { name: title }
-          : dialog.type === 'epic'
-            ? { title, project_id: projectId, completed, archived }
-            : { title, description, epic_id: epicId, status }
       // Do not overwrite unrelated changes made by another user or agent.
-      if (item) {
-        const before = initial.current
-        const original: Record<string, unknown> = {
-          name: before.title,
-          title: before.title,
-          description: before.description,
-          project_id: before.projectId,
-          epic_id: before.epicId,
-          status: before.status,
-          completed: before.completed,
-          archived: before.archived,
-        }
-        for (const key of Object.keys(body)) if (body[key] === original[key]) delete body[key]
+      const before = initial.current
+      if (dialog.type === 'project') {
+        const body = { name: title }
+        await mutate(
+          item
+            ? api.updateProject(item.id, changedFields(body, { name: before.title }))
+            : api.createProject(body),
+        )
+      } else if (dialog.type === 'epic') {
+        const body = { title, project_id: projectId, completed, archived }
+        await mutate(
+          item
+            ? api.updateEpic(
+                item.id,
+                changedFields(body, {
+                  title: before.title,
+                  project_id: before.projectId,
+                  completed: before.completed,
+                  archived: before.archived,
+                }),
+              )
+            : api.createEpic(body),
+        )
+      } else {
+        const body = { title, description, epic_id: epicId, status }
+        await mutate(
+          item
+            ? api.updateTicket(
+                item.id,
+                changedFields(body, {
+                  title: before.title,
+                  description: before.description,
+                  epic_id: before.epicId,
+                  status: before.status,
+                }),
+              )
+            : api.createTicket(body),
+        )
       }
-      await mutate(`${kind}${item ? `/${item.id}` : ''}`, item ? 'PATCH' : 'POST', body)
       close()
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -1581,22 +1575,22 @@ function Editor({
     setSaving(true)
     setError('')
     try {
-      await mutate(`tickets/${item.id}`, 'DELETE')
+      await mutate(api.deleteTicket(item.id))
       close()
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }
   }
-  async function link(method: string, link: Link) {
+  async function link(method: 'POST' | 'DELETE', link: Link) {
     setSaving(true)
     setError('')
     try {
-      await mutate('links', method, link)
+      await mutate(method === 'POST' ? api.createLink(link) : api.deleteLink(link))
       setTarget('')
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -1760,7 +1754,12 @@ function Editor({
                 <label className="field-label">
                   Status
                   <div className="select-wrap">
-                    <select value={status} onChange={(e) => setStatus(e.target.value as Status)}>
+                    <select
+                      value={status}
+                      onChange={(e) => {
+                        if (isStatus(e.target.value)) setStatus(e.target.value)
+                      }}
+                    >
                       {columns.map((c) => (
                         <option key={c.status} value={c.status}>
                           {c.label}
@@ -1926,6 +1925,12 @@ function Editor({
       </div>
     </div>
   )
+}
+
+function changedFields<T extends object>(current: T, original: T): Partial<T> {
+  const patch: Partial<T> = {}
+  for (const key in current) if (current[key] !== original[key]) patch[key] = current[key]
+  return patch
 }
 
 createRoot(document.getElementById('root')!).render(<App />)

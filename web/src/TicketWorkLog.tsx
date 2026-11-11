@@ -1,21 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { ClipboardCheck, MessageSquare } from 'lucide-react'
+import { api, errorMessage, type Mutate } from './shared/api'
+import type { WorkLogEntry } from './shared/types'
 
 const MarkdownDescription = lazy(() =>
   import('./MarkdownDescription').then((module) => ({ default: module.MarkdownDescription })),
 )
-type Entry = {
-  id: number
-  ticket_id: number
-  kind: 'note' | 'review_handoff'
-  author: string
-  body: string
-  verification: string
-  references: string
-  review_notes: string
-  created_at: string
-}
-type Mutate = (path: string, method: string, body?: unknown) => Promise<unknown>
 
 function Markdown({ source }: { source: string }) {
   return (
@@ -34,7 +24,7 @@ export function TicketWorkLog({
   revision: unknown
   mutate: Mutate
 }) {
-  const [entries, setEntries] = useState<Entry[]>([])
+  const [entries, setEntries] = useState<WorkLogEntry[]>([])
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [reload, setReload] = useState(0)
@@ -52,10 +42,9 @@ export function TicketWorkLog({
   useEffect(() => {
     const controller = new AbortController()
     let active = true
-    fetch(`/api/tickets/${ticketID}/work-log`, { signal: controller.signal })
-      .then(async (response) => {
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.error || 'Could not load work log')
+    api
+      .workLog(ticketID, controller.signal)
+      .then((result) => {
         if (active) {
           setEntries(result.entries)
           setLoaded(true)
@@ -63,7 +52,7 @@ export function TicketWorkLog({
         }
       })
       .catch((err) => {
-        if (active) setLoadError((err as Error).message)
+        if (active) setLoadError(errorMessage(err))
       })
     return () => {
       active = false
@@ -78,15 +67,19 @@ export function TicketWorkLog({
     setError('')
     setNotice('')
     try {
-      const input = handoff
-        ? { summary: body, verification, references, review_notes: reviewNotes, author }
-        : { body, author }
-      const result = await mutate(
-        `tickets/${ticketID}/${handoff ? 'review-handoff' : 'work-log'}`,
-        'POST',
-        input,
-      )
-      const entry = handoff ? (result as { entry: Entry }).entry : (result as Entry)
+      const entry = handoff
+        ? (
+            await mutate(
+              api.createReviewHandoff(ticketID, {
+                summary: body,
+                verification,
+                references,
+                review_notes: reviewNotes,
+                author,
+              }),
+            )
+          ).entry
+        : await mutate(api.addWorkLog(ticketID, { body, author }))
       setEntries((previous) =>
         [...previous.filter((e) => e.id !== entry.id), entry].sort((a, b) => a.id - b.id),
       )
@@ -100,7 +93,7 @@ export function TicketWorkLog({
         handoff ? 'Review handoff saved. Ticket is ready for review.' : 'Work log entry added.',
       )
     } catch (err) {
-      setError((err as Error).message)
+      setError(errorMessage(err))
     } finally {
       setSaving(false)
     }

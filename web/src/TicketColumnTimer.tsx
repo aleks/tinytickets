@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { Clock3 } from 'lucide-react'
+import type { Status } from './shared/types'
+import { statusMetadata } from './shared/status'
 
 // All visible counters share one clock; the rest of the board does not rerender
 // each second, and ticking neither polls the API nor writes timer state.
@@ -43,9 +45,9 @@ function formatElapsed(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`
 }
 
-export function TicketColumnTimer({ status, since }: { status: string; since: string | null }) {
+export function TicketColumnTimer({ status, since }: { status: Status; since: string | null }) {
   if (status !== 'in_progress' && status !== 'ready_for_review') return null
-  const label = status === 'in_progress' ? 'In progress' : 'Ready for review'
+  const label = statusMetadata[status].label
   const entered = Date.parse(since || '')
   if (!Number.isFinite(entered))
     return (

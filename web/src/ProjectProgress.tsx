@@ -1,60 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, Layers, LoaderCircle } from 'lucide-react'
 
-type Status = 'todo' | 'in_progress' | 'ready_for_review' | 'done'
-const statuses: { id: Status; label: string }[] = [
-  { id: 'todo', label: 'Todo' },
-  { id: 'in_progress', label: 'In progress' },
-  { id: 'ready_for_review', label: 'Ready for review' },
-  { id: 'done', label: 'Done' },
-]
-type Segment = { status: Status; start: string; end: string; ongoing: boolean }
-type TicketTiming = {
-  ticket: { id: number; title: string; status: Status }
-  history_complete: boolean
-  observed_from: string | null
-  timing_state: 'observed' | 'not_started' | 'unavailable'
-  started_at: string | null
-  completed_at: string | null
-  cycle_seconds: number | null
-  active_age_seconds: number | null
-  in_progress_seconds: number
-  review_seconds: number
-  segments: Segment[]
-}
-type Metrics = {
-  total: number
-  completed: number
-  active: number
-  blocked: number
-  not_started: number
-  partial_history: number
-  timing_unavailable: number
-  status_counts: Record<Status, number>
-  in_progress_seconds: number
-  review_seconds: number
-  median_completion_seconds: number | null
-  completion_samples: number
-  oldest_active_age_seconds: number | null
-  active_age_samples: number
-}
-type EpicTiming = {
-  epic: { id: number; title: string; completed: boolean; archived: boolean }
-  metrics: Metrics
-  tickets: TicketTiming[]
-}
-type Bucket = { date: string; tickets: number }
-type Report = {
-  project: { id: number; name: string }
-  generated_at: string
-  metrics: Metrics
-  epics_total: number
-  epics_completed: number
-  epics_archived: number
-  epics: EpicTiming[]
-  daily_completions: Bucket[]
-  weekly_completions: Bucket[]
-}
+import { api, errorMessage } from './shared/api'
+import { statuses, statusMetadata } from './shared/status'
+import type { ProjectExecution } from './shared/types'
 
 export function duration(seconds: number | null): string {
   if (seconds === null) return '—'
@@ -78,7 +27,7 @@ function localTime(value: string | number) {
 }
 
 export function ProjectProgress({ projectID, revision }: { projectID: number; revision: object }) {
-  const [report, setReport] = useState<Report | null>(null)
+  const [report, setReport] = useState<ProjectExecution | null>(null)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
   const [now, setNow] = useState(Date.now)
@@ -91,18 +40,14 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
     const controller = new AbortController()
     async function load() {
       try {
-        const response = await fetch(`/api/projects/${projectID}/execution`, {
-          signal: controller.signal,
-        })
-        const next = await response.json()
-        if (!response.ok) throw new Error(next.error || 'Unable to load project execution')
+        const next = await api.projectExecution(projectID, controller.signal)
         if (!controller.signal.aborted) {
           setReport(next)
           setNow(Date.now())
           setError('')
         }
       } catch (err) {
-        if (!controller.signal.aborted) setError((err as Error).message)
+        if (!controller.signal.aborted) setError(errorMessage(err))
       }
     }
     load()
@@ -220,10 +165,10 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
       </div>
       <div className="execution-statuses" aria-label="Ticket status breakdown">
         {statuses.map((s) => (
-          <span key={s.id}>
-            <span className={`execution-dot execution-${s.id}`} />
+          <span key={s.status}>
+            <span className={`execution-dot execution-${s.status}`} />
             {s.label}
-            <strong>{m.status_counts[s.id]}</strong>
+            <strong>{m.status_counts[s.status]}</strong>
           </span>
         ))}
       </div>
@@ -354,7 +299,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
                             <span className="truncate">{t.ticket.title}</span>
                           </a>
                           <div className="ticket-timing-summary">
-                            <span>{statuses.find((s) => s.id === t.ticket.status)?.label}</span>
+                            <span>{statusMetadata[t.ticket.status].label}</span>
                             {!t.history_complete && (
                               <span className="partial-history">Partial history</span>
                             )}
@@ -375,7 +320,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
                               Date.parse(s.start),
                               s.ongoing ? now : Date.parse(s.end),
                             )
-                            const label = `${statuses.find((status) => status.id === s.status)?.label}: ${localTime(s.start)} → ${s.ongoing ? 'now' : localTime(s.end)}`
+                            const label = `${statusMetadata[s.status].label}: ${localTime(s.start)} → ${s.ongoing ? 'now' : localTime(s.end)}`
                             return (
                               style && (
                                 <span
@@ -410,9 +355,9 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
         </div>
         <div className="timeline-legend">
           {statuses.map((s) => (
-            <span key={s.id}>
-              <span className={`execution-dot execution-${s.id}`} />
-              {s.id === 'todo' ? 'Returned to todo' : s.label}
+            <span key={s.status}>
+              <span className={`execution-dot execution-${s.status}`} />
+              {s.status === 'todo' ? 'Returned to todo' : s.label}
             </span>
           ))}
           <span>
@@ -446,7 +391,7 @@ export function ProjectProgress({ projectID, revision }: { projectID: number; re
                       {t.ticket.title}
                     </a>
                     <span className="untimed-epic">
-                      {t.epic.title} · {statuses.find((s) => s.id === t.ticket.status)?.label}
+                      {t.epic.title} · {statusMetadata[t.ticket.status].label}
                     </span>
                   </li>
                 ))}
