@@ -2,6 +2,12 @@
 
 A small, local-first ticket board. One Go binary serves an embedded React frontend, a REST API, and an MCP server. SQLite is the only datastore; no external services or CGO are needed.
 
+## Documentation
+
+See the [documentation index](docs/README.md) for coding-agent setup and work tracking.
+To let an agent do the setup, give it the [agent setup procedure](docs/setup-for-agents.md).
+
+
 ## Run
 
 Requires Go 1.26+ to build. The built frontend is checked in, so Node is not required unless you change it.
