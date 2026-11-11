@@ -32,8 +32,15 @@ export function EpicList({
   navigate: (view: View) => void
 }) {
   const [showArchived, setShowArchived] = useState(false)
-  const archivedSectionID = useId()
+  const epicGridID = useId()
   const projectArchives = view.type === 'project' && allArchivedEpics.length > 0
+  const includeArchived = view.type === 'project' && showArchived
+  const listingCount = listingEpics.length + (includeArchived ? allArchivedEpics.length : 0)
+  const displayedEpics = includeArchived
+    ? [...filteredEpics, ...archivedEpics].sort(
+        (a, b) => Number(a.completed) - Number(b.completed) || b.id - a.id,
+      )
+    : filteredEpics
 
   return (
     <>
@@ -43,15 +50,27 @@ export function EpicList({
           aria-label={view.type === 'epics' ? 'Active and completed epics' : undefined}
         >
           <div className="section-heading">
-            <h2>
-              <Layers size={17} />
-              {view.type === 'epics'
-                ? 'Active & completed epics'
-                : view.type === 'home'
-                  ? 'Active epics'
-                  : 'Epics'}
-              <span className="count">{listingEpics.length}</span>
-            </h2>
+            <div className="epic-list-heading">
+              <h2>
+                <Layers size={17} />
+                {view.type === 'epics'
+                  ? 'Active & completed epics'
+                  : view.type === 'home'
+                    ? 'Active epics'
+                    : 'Epics'}
+                <span className="count">{listingCount}</span>
+              </h2>
+              {projectArchives && (
+                <button
+                  className="text-button"
+                  aria-expanded={showArchived}
+                  aria-controls={epicGridID}
+                  onClick={() => setShowArchived((previous) => !previous)}
+                >
+                  {showArchived ? 'Hide' : 'Show'} archived epics ({allArchivedEpics.length})
+                </button>
+              )}
+            </div>
             {view.type === 'epics' ? (
               <SearchField value={query} onChange={setQuery} placeholder="Find an epic…" />
             ) : (
@@ -70,8 +89,8 @@ export function EpicList({
               </button>
             )}
           </div>
-          <div className="epic-grid">
-            {filteredEpics.map((e) => (
+          <div className="epic-grid" id={epicGridID}>
+            {displayedEpics.map((e) => (
               <EpicCard
                 key={e.id}
                 epic={e}
@@ -79,7 +98,7 @@ export function EpicList({
                 onClick={() => navigate({ type: 'epic', id: e.id })}
               />
             ))}
-            {!listingEpics.length && (
+            {!listingCount && (
               <button
                 className="empty-epic"
                 onClick={() =>
@@ -110,29 +129,14 @@ export function EpicList({
                 <Plus size={18} />
               </button>
             )}
-            {query && listingEpics.length > 0 && !filteredEpics.length && (
+            {query && listingCount > 0 && !displayedEpics.length && (
               <p className="muted">No matching epics.</p>
             )}
           </div>
         </section>
       )}
-      {projectArchives && (
-        <button
-          className="text-button"
-          aria-expanded={showArchived}
-          aria-controls={archivedSectionID}
-          onClick={() => setShowArchived((previous) => !previous)}
-        >
-          <Archive size={14} />
-          {showArchived ? 'Hide' : 'Show'} archived epics ({allArchivedEpics.length})
-        </button>
-      )}
-      {(view.type === 'epics' || (projectArchives && showArchived)) && (
-        <section
-          id={archivedSectionID}
-          className="archived-epics-section"
-          aria-label="Archived epics"
-        >
+      {view.type === 'epics' && (
+        <section className="archived-epics-section" aria-label="Archived epics">
           <div className="section-heading">
             <h2>
               <Archive size={17} />

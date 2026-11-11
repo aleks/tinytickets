@@ -1,11 +1,20 @@
 .epics-section {
   margin-bottom: 24px;
 }
+.epics-section > .section-heading,
+.epic-list-heading {
+  flex-wrap: wrap;
+}
+.epic-list-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px 12px;
+}
 .archived-epics-section {
   border-top: 1px solid var(--border);
   padding-top: 18px;
 }
-.archived-epics-section .epic-card {
+.epic-card.is-archived {
   border-style: dashed;
 }
 .epic-grid {
