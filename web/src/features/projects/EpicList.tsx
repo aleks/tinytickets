@@ -1,3 +1,4 @@
+import { useId, useState } from 'react'
 import { Archive, ArchiveRestore, ArrowUpRight, Layers, Plus } from 'lucide-react'
 import type { Project, Epic, Workspace } from '../../shared/types'
 import { SearchField } from '../../shared/ui/SearchField'
@@ -34,6 +35,10 @@ export function EpicList({
   busy: boolean
   archive: (epic: Epic, archived: boolean) => void
 }) {
+  const [showArchived, setShowArchived] = useState(false)
+  const archivedSectionID = useId()
+  const projectArchives = view.type === 'project' && allArchivedEpics.length > 0
+
   return (
     <>
       {view.type !== 'epic' && (
@@ -96,7 +101,8 @@ export function EpicList({
                   <strong>
                     {view.type === 'home' && data.epics.length
                       ? 'All epics completed'
-                      : view.type === 'epics' && allArchivedEpics.length
+                      : (view.type === 'epics' || view.type === 'project') &&
+                          allArchivedEpics.length
                         ? 'No unarchived epics'
                         : 'No epics yet'}
                   </strong>
@@ -114,8 +120,23 @@ export function EpicList({
           </div>
         </section>
       )}
-      {view.type === 'epics' && (
-        <section className="archived-epics-section" aria-label="Archived epics">
+      {projectArchives && (
+        <button
+          className="text-button"
+          aria-expanded={showArchived}
+          aria-controls={archivedSectionID}
+          onClick={() => setShowArchived((previous) => !previous)}
+        >
+          <Archive size={14} />
+          {showArchived ? 'Hide' : 'Show'} archived epics ({allArchivedEpics.length})
+        </button>
+      )}
+      {(view.type === 'epics' || (projectArchives && showArchived)) && (
+        <section
+          id={archivedSectionID}
+          className="archived-epics-section"
+          aria-label="Archived epics"
+        >
           <div className="section-heading">
             <h2>
               <Archive size={17} />

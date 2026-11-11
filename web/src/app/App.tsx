@@ -130,7 +130,9 @@ export function App() {
           ? 'Epics'
           : currentProject?.name || currentEpic?.title || currentTicket?.title || 'Not found'
   const unarchivedEpics = data.epics.filter((e) => !e.archived)
-  const allArchivedEpics = data.epics.filter((e) => e.archived)
+  const allArchivedEpics = data.epics.filter(
+    (e) => e.archived && (view.type !== 'project' || e.project_id === view.id),
+  )
   const visibleEpics = selectVisibleEpics(data, view)
   const epicIDs = new Set(visibleEpics.map((e) => e.id))
   const visibleTickets = selectVisibleTickets(data, epicIDs, query)
@@ -343,6 +345,7 @@ export function App() {
           ) : (
             <>
               <EpicList
+                key={view.type === 'project' ? `project-${view.id}` : view.type}
                 view={view}
                 data={data}
                 query={query}
