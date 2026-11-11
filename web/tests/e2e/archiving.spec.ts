@@ -1,16 +1,12 @@
 import assert from 'node:assert/strict'
+import { test } from './fixtures'
+import { api } from './helpers/api'
 
-export async function testEpicArchiving(page, url) {
-  const create = async (kind, data) => {
-    const response = await page.request.post(`${url}/api/${kind}`, { data })
-    assert.equal(response.status(), 201)
-    return response.json()
-  }
-  const patch = async (kind, id, data) => {
-    const response = await page.request.patch(`${url}/api/${kind}/${id}`, { data })
-    assert.equal(response.status(), 200)
-    return response.json()
-  }
+test('archiving preserves data, links, metrics, editing and direct access', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create, patch } = api(page.request, url)
   const project = await create('projects', { name: 'Archive project' })
   const visible = await create('epics', { project_id: project.id, title: 'Visible archive work' })
   const candidate = await create('epics', { project_id: project.id, title: 'Archive candidate' })
@@ -40,7 +36,8 @@ export async function testEpicArchiving(page, url) {
 
   const editEpic = async () => {
     const menu = page.locator('details.more-menu')
-    if (!(await menu.evaluate((el) => el.open))) await menu.locator('summary').click()
+    if (!(await menu.evaluate((el: HTMLDetailsElement) => el.open)))
+      await menu.locator('summary').click()
     await page.getByRole('button', { name: 'Edit epic', exact: true }).click()
   }
   const sidebarCandidate = page
@@ -102,13 +99,16 @@ export async function testEpicArchiving(page, url) {
     1,
   )
   const snapshot = await (await page.request.get(`${url}/api/state`)).json()
-  assert.equal(snapshot.epics.find((e) => e.id === candidate.id).archived, true)
+  assert.equal(snapshot.epics.find((e: { id: number }) => e.id === candidate.id).archived, true)
   assert.equal(
-    snapshot.tickets.some((t) => t.id === hidden.id),
+    snapshot.tickets.some((t: { id: number }) => t.id === hidden.id),
     true,
   )
   assert.equal(
-    snapshot.links.some((l) => l.blocker_id === hidden.id && l.blocked_id === visibleTicket.id),
+    snapshot.links.some(
+      (l: { blocker_id: number; blocked_id: number }) =>
+        l.blocker_id === hidden.id && l.blocked_id === visibleTicket.id,
+    ),
     true,
   )
   await page.getByRole('button', { name: 'New ticket', exact: true }).click()
@@ -143,11 +143,17 @@ export async function testEpicArchiving(page, url) {
   assert.equal(reportAfter.metrics.completed, reportBefore.metrics.completed)
   assert.equal(reportAfter.metrics.completion_samples, reportBefore.metrics.completion_samples)
   assert.equal(
-    reportAfter.daily_completions.reduce((sum, b) => sum + b.tickets, 0),
-    reportBefore.daily_completions.reduce((sum, b) => sum + b.tickets, 0),
+    reportAfter.daily_completions.reduce(
+      (sum: number, b: { tickets: number }) => sum + b.tickets,
+      0,
+    ),
+    reportBefore.daily_completions.reduce(
+      (sum: number, b: { tickets: number }) => sum + b.tickets,
+      0,
+    ),
   )
   assert.equal(
-    reportAfter.epics.some((e) => e.epic.id === candidate.id),
+    reportAfter.epics.some((e: { epic: { id: number } }) => e.epic.id === candidate.id),
     false,
   )
   assert.equal(reportAfter.epics_archived, 1)
@@ -243,4 +249,4 @@ export async function testEpicArchiving(page, url) {
     false,
   )
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
-}
+})

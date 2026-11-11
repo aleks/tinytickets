@@ -1,16 +1,12 @@
 import assert from 'node:assert/strict'
+import { test } from './fixtures'
+import { api } from './helpers/api'
 
-export async function testDependencyMap(page, url) {
-  const create = async (kind, data) => {
-    const response = await page.request.post(`${url}/api/${kind}`, { data })
-    assert.equal(response.status(), 201)
-    return response.json()
-  }
-  const patch = async (kind, id, data) => {
-    const response = await page.request.patch(`${url}/api/${kind}/${id}`, { data })
-    assert.equal(response.status(), 200)
-    return response.json()
-  }
+test('dependency maps preserve readiness, external chains, live updates and accessible controls', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create, patch } = api(page.request, url)
   const project = await create('projects', { name: 'Dependency map coverage' })
   const external = await create('projects', { name: 'External map context' })
   const active = await create('epics', { project_id: project.id, title: 'Active dependency work' })
@@ -29,7 +25,7 @@ export async function testDependencyMap(page, url) {
     project_id: external.id,
     title: 'External dependency work',
   })
-  const task = (title, status = 'todo', epic_id = active.id) =>
+  const task = (title: string, status = 'todo', epic_id = active.id) =>
     create('tickets', { title, status, epic_id })
   const a = await task('Design contract', 'done')
   const b = await task('Implement API')
@@ -76,6 +72,7 @@ export async function testDependencyMap(page, url) {
   }
   const graphBounds = await map.locator('.dependency-scroll').boundingBox()
   const guideBounds = await guide.boundingBox()
+  assert.ok(guideBounds && graphBounds)
   assert.ok(guideBounds.y >= graphBounds.y + graphBounds.height)
   assert.equal(new URL(page.url()).hash, `#project/${project.id}/dependencies`)
   assert.equal(
@@ -95,7 +92,7 @@ export async function testDependencyMap(page, url) {
       .getAttribute('aria-current'),
     'page',
   )
-  const node = (t) => map.locator(`.map-node[data-ticket-id="${t.id}"]`)
+  const node = (t: { id: number }) => map.locator(`.map-node[data-ticket-id="${t.id}"]`)
   assert.equal(await node(hidden).count(), 0)
   assert.equal(await node(upstream).count(), 0)
   assert.equal(await node(downstream).count(), 0)
@@ -104,8 +101,8 @@ export async function testDependencyMap(page, url) {
     await node(archivedBlocker).locator('.map-node-badges').textContent(),
     'Archived epic',
   )
-  assert.ok((await node(x).getAttribute('class')).includes('map-node-context'))
-  assert.ok((await node(x).textContent()).includes('External map context'))
+  assert.ok((await node(x).getAttribute('class'))?.includes('map-node-context'))
+  assert.ok((await node(x).textContent())?.includes('External map context'))
   assert.equal(await node(x).getAttribute('data-state'), 'blocked')
   assert.equal(await node(b).getAttribute('data-state'), 'blocked')
   assert.equal(await node(finished).getAttribute('data-state'), 'todo')
@@ -120,7 +117,7 @@ export async function testDependencyMap(page, url) {
     .evaluateAll((nodes) => nodes.map((n) => Number(n.dataset.ticketId)))
   assert.deepEqual(
     graphReady,
-    ready.tickets.map((t) => t.id),
+    ready.tickets.map((t: { id: number }) => t.id),
   )
   const canvasNodes = await map.locator('.map-node').evaluateAll((nodes) =>
     nodes.map((n) => ({
@@ -135,10 +132,12 @@ export async function testDependencyMap(page, url) {
       paths.map((p) => ({ from: Number(p.dataset.blocker), to: Number(p.dataset.dependent) })),
     )
   assert.equal(edges.length, 8)
-  for (const edge of edges)
-    assert.ok(
-      canvasNodes.find((n) => n.id === edge.from).x < canvasNodes.find((n) => n.id === edge.to).x,
-    )
+  for (const edge of edges) {
+    const from = canvasNodes.find((n) => n.id === edge.from)
+    const to = canvasNodes.find((n) => n.id === edge.to)
+    assert.ok(from && to)
+    assert.ok(from.x < to.x)
+  }
   assert.ok((await map.locator('.map-edge-satisfied').count()) > 0)
   await map.getByRole('button', { name: 'Fit width', exact: true }).click()
   assert.ok(
@@ -159,7 +158,7 @@ export async function testDependencyMap(page, url) {
     await selection.locator('.dependency-relations').first().getByRole('link').count(),
     3,
   )
-  assert.ok((await node(independent).getAttribute('class')).includes('map-node-dimmed'))
+  assert.ok((await node(independent).getAttribute('class'))?.includes('map-node-dimmed'))
   await map.getByRole('checkbox', { name: `Show only TT-${d.id}'s chain`, exact: true }).check()
   assert.equal(await node(independent).count(), 0)
   assert.equal(await node(review).count(), 0) // sibling branch is not a descendant of the join
@@ -192,7 +191,9 @@ export async function testDependencyMap(page, url) {
   // Live updates recompute readiness from ALL blockers, even hidden done nodes.
   await patch('tickets', x.id, { status: 'done' })
   await page.waitForFunction(
-    (id) => document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'ready',
+    (id) =>
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'ready',
     b.id,
   )
   await map.getByRole('checkbox', { name: 'Hide done tickets', exact: true }).check()
@@ -203,18 +204,22 @@ export async function testDependencyMap(page, url) {
   assert.equal(claimed.status(), 200)
   await page.waitForFunction(
     (id) =>
-      document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'in_progress',
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'in_progress',
     b.id,
   )
   for (const t of [b, c, archivedBlocker]) await patch('tickets', t.id, { status: 'done' })
   await page.waitForFunction(
-    (id) => document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'ready',
+    (id) =>
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'ready',
     d.id,
   )
   await patch('tickets', c.id, { status: 'in_progress' })
   await page.waitForFunction(
     (id) =>
-      document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'blocked',
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'blocked',
     d.id,
   )
   const unlink = await page.request.delete(`${url}/api/links`, {
@@ -222,18 +227,23 @@ export async function testDependencyMap(page, url) {
   })
   assert.equal(unlink.status(), 200)
   await page.waitForFunction(
-    (id) => document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'ready',
+    (id) =>
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'ready',
     d.id,
   )
   await create('links', { blocker_id: c.id, blocked_id: d.id })
   await page.waitForFunction(
     (id) =>
-      document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'blocked',
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'blocked',
     d.id,
   )
   await patch('epics', closed.id, { completed: false })
   await page.waitForFunction(
-    (id) => document.querySelector(`.map-node[data-ticket-id="${id}"]`)?.dataset.state === 'ready',
+    (id) =>
+      document.querySelector<HTMLElement>(`.map-node[data-ticket-id="${id}"]`)?.dataset.state ===
+      'ready',
     finished.id,
   )
   const deletion = await page.request.delete(`${url}/api/tickets/${review.id}`)
@@ -297,4 +307,4 @@ export async function testDependencyMap(page, url) {
   await map.getByRole('heading', { name: 'No tickets match these filters', exact: true }).waitFor()
   await map.getByRole('checkbox', { name: 'Include archived epics', exact: true }).check()
   await map.getByText('No dependency arrows in this view.', { exact: false }).waitFor()
-}
+})

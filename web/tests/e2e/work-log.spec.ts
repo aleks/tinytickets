@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
+import type { Route } from 'playwright/test'
+import { test } from './fixtures'
+import { api } from './helpers/api'
 
-export async function testWorkLog(page, url) {
-  const create = async (kind, data) => {
-    const response = await page.request.post(`${url}/api/${kind}`, { data })
-    assert.equal(response.status(), 201)
-    return response.json()
-  }
+test('ordered work logs and review handoffs preserve drafts, timing and archived access', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create } = api(page.request, url)
   const project = await create('projects', { name: 'Work log coverage' })
   const epic = await create('epics', { project_id: project.id, title: 'Notes and review handoffs' })
   const ticket = await create('tickets', {
@@ -40,7 +42,10 @@ export async function testWorkLog(page, url) {
   assert.equal(await entries.first().locator('.work-log-author').textContent(), 'Agent <one>')
   assert.equal(await entries.locator('script').count(), 0)
   assert.equal(await entries.locator('a[href^="javascript:"]').count(), 0)
-  assert.equal(await page.evaluate(() => window.logPwned), undefined)
+  assert.equal(
+    await page.evaluate(() => (window as Window & { logPwned?: boolean }).logPwned),
+    undefined,
+  )
   let current = await getTicket()
   assert.equal(current.description, ticket.description)
   assert.equal(current.status_since, ticket.status_since)
@@ -60,7 +65,7 @@ export async function testWorkLog(page, url) {
   let stored = await getLog()
   assert.deepEqual(
     await entries.evaluateAll((elements) => elements.map((el) => Number(el.dataset.entryId))),
-    stored.entries.map((e) => e.id),
+    stored.entries.map((e: { id: number }) => e.id),
   )
 
   await log.getByLabel('Update type', { exact: true }).selectOption('review_handoff')
@@ -115,7 +120,7 @@ export async function testWorkLog(page, url) {
   // Failed submissions retain drafts, show an actionable error, and add nothing.
   await log.getByLabel('Update type', { exact: true }).selectOption('note')
   await log.getByLabel('Log entry', { exact: true }).fill('Retry this note')
-  const failPost = async (route) => {
+  const failPost = async (route: Route) => {
     if (route.request().method() === 'POST')
       await route.fulfill({ status: 503, json: { error: 'Temporary log failure' } })
     else await route.continue()
@@ -131,7 +136,7 @@ export async function testWorkLog(page, url) {
   assert.equal((await getTicket()).status_since, reviewSince)
 
   // Read failures have a retry path, and reloads preserve append order.
-  const failGet = (route) =>
+  const failGet = (route: Route) =>
     route.fulfill({ status: 503, json: { error: 'Log temporarily unavailable' } })
   await page.route(`**/api/tickets/${ticket.id}/work-log`, failGet)
   await page.reload()
@@ -142,7 +147,7 @@ export async function testWorkLog(page, url) {
   stored = await getLog()
   assert.deepEqual(
     await entries.evaluateAll((elements) => elements.map((el) => Number(el.dataset.entryId))),
-    stored.entries.map((e) => e.id),
+    stored.entries.map((e: { id: number }) => e.id),
   )
   assert.equal(await entries.getByRole('button', { name: /edit|delete/i }).count(), 0)
 
@@ -171,4 +176,4 @@ export async function testWorkLog(page, url) {
   assert.equal(await entries.count(), 0)
   await page.goto(`${url}/#ticket/${ticket.id}`)
   await page.waitForFunction(() => document.querySelectorAll('.work-log-entry').length === 7)
-}
+})

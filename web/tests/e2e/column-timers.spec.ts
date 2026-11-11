@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict'
+import type { Request } from 'playwright/test'
+import { test } from './fixtures'
+import { api } from './helpers/api'
 
-export async function testColumnTimers(page, url) {
-  const create = async (kind, data) => {
-    const response = await page.request.post(`${url}/api/${kind}`, { data })
-    assert.equal(response.status(), 201)
-    return response.json()
-  }
-  const change = async (id, data) => {
-    const response = await page.request.patch(`${url}/api/tickets/${id}`, { data })
-    assert.equal(response.status(), 200)
-    return response.json()
-  }
+test('column timers tick locally, reset on moves, format durations and handle unavailable dates', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create, patch } = api(page.request, url)
+  const change = (id: number, data: Record<string, unknown>) => patch('tickets', id, data)
   const project = await create('projects', { name: 'Column timers' })
   const epic = await create('epics', { project_id: project.id, title: 'Column timer coverage' })
   const active = await create('tickets', {
@@ -35,16 +33,16 @@ export async function testColumnTimers(page, url) {
   assert.equal(done.status_since, null)
 
   let stateRequests = 0
-  const countRequest = (request) => {
+  const countRequest = (request: Request) => {
     if (new URL(request.url()).pathname === '/api/state') stateRequests++
   }
   page.on('request', countRequest)
-  const card = (title) =>
+  const card = (title: string) =>
     page
       .locator('.ticket-card')
       .filter({ has: page.getByRole('heading', { name: title, exact: true }) })
   const timer = () => card(active.title).locator('.ticket-column-timer')
-  const waitSeconds = async (title, seconds) => {
+  const waitSeconds = async (title: string, seconds: number) => {
     await page.waitForFunction(
       ({ title, seconds }) => {
         const card = Array.from(document.querySelectorAll('.ticket-card')).find(
@@ -139,11 +137,11 @@ export async function testColumnTimers(page, url) {
   page.off('request', countRequest)
   const fixed = Date.parse('2026-11-09T12:00:00.000Z')
   await page.clock.setFixedTime(new Date(fixed))
-  let since = new Date(fixed).toISOString()
+  let since: string | null = new Date(fixed).toISOString()
   await page.route('**/api/state', async (route) => {
     const response = await route.fetch()
     const state = await response.json()
-    state.tickets.find((t) => t.id === active.id).status_since = since
+    state.tickets.find((t: { id: number }) => t.id === active.id).status_since = since
     await route.fulfill({ response, json: state })
   })
   for (const [seconds, display] of [
@@ -155,7 +153,7 @@ export async function testColumnTimers(page, url) {
     [86399, '23:59:59'],
     [86400, '1d 00:00:00'],
     [90061, '1d 01:01:01'],
-  ]) {
+  ] as const) {
     since = new Date(fixed - seconds * 1000).toISOString()
     await page.reload()
     await timer().waitFor()
@@ -192,4 +190,4 @@ export async function testColumnTimers(page, url) {
   assert.equal(await card(todo.title).locator('.ticket-column-timer').count(), 0)
   assert.equal(await card(done.title).locator('.ticket-column-timer').count(), 0)
   await page.unroute('**/api/state')
-}
+})

@@ -1,15 +1,12 @@
 import assert from 'node:assert/strict'
+import { test } from './fixtures'
+import { api } from './helpers/api'
 
-export async function testExecutionInsights(page, url) {
-  const create = async (kind, body) => {
-    const response = await page.request.post(`${url}/api/${kind}`, { data: body })
-    assert.equal(response.status(), 201)
-    return response.json()
-  }
-  const update = async (kind, id, data) => {
-    const response = await page.request.patch(`${url}/api/${kind}/${id}`, { data })
-    assert.equal(response.status(), 200)
-  }
+test('execution insights, history, live metrics, timelines and responsive surfaces', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create, patch: update } = api(page.request, url)
   const project = await create('projects', { name: 'Execution project' })
   const epic = await create('epics', { project_id: project.id, title: 'Delivery' })
   const archived = await create('epics', {
@@ -35,7 +32,12 @@ export async function testExecutionInsights(page, url) {
     status: 'in_progress',
   })
   await update('tickets', archivedTicket.id, { status: 'done' })
-  const blocker = await create('tickets', { epic_id: 1, title: 'External blocker' })
+  const externalProject = await create('projects', { name: 'External blockers' })
+  const externalEpic = await create('epics', {
+    project_id: externalProject.id,
+    title: 'External prerequisites',
+  })
+  const blocker = await create('tickets', { epic_id: externalEpic.id, title: 'External blocker' })
   await create('links', { blocker_id: blocker.id, blocked_id: active.id })
 
   const historyURL = `${url}/api/tickets/${active.id}/history`
@@ -61,7 +63,7 @@ export async function testExecutionInsights(page, url) {
       .getAttribute('href'),
     `#project/${project.id}/progress`,
   )
-  const metric = (name) =>
+  const metric = (name: string) =>
     page
       .locator('.execution-metric')
       .filter({ has: page.getByRole('heading', { name, exact: true }) })
@@ -125,7 +127,7 @@ export async function testExecutionInsights(page, url) {
     await page.request.get(`${url}/api/projects/${project.id}/execution`)
   ).json()
   assert.equal(
-    latest.daily_completions.reduce((sum, b) => sum + b.tickets, 0),
+    latest.daily_completions.reduce((sum: number, b: { tickets: number }) => sum + b.tickets, 0),
     3,
   )
   await page.locator('.timeline-ticket-link').filter({ hasText: 'Reopened implementation' }).click()
@@ -141,8 +143,8 @@ export async function testExecutionInsights(page, url) {
   await page.route(executionRoute, async (route) => {
     const response = await route.fetch()
     const report = await response.json()
-    const group = report.epics.find((e) => e.epic.id === epic.id)
-    const timing = group.tickets.find((t) => t.ticket.id === todo.id)
+    const group = report.epics.find((e: { epic: { id: number } }) => e.epic.id === epic.id)
+    const timing = group.tickets.find((t: { ticket: { id: number } }) => t.ticket.id === todo.id)
     timing.history_complete = false
     timing.timing_state = 'unavailable'
     for (const m of [report.metrics, group.metrics]) {
@@ -191,4 +193,4 @@ export async function testExecutionInsights(page, url) {
   await page.getByRole('heading', { name: 'Execution insights', exact: true }).waitFor()
   assert.equal(await metric('Completed tickets').textContent(), '0 / 0')
   assert.equal(await metric('Median completion time').textContent(), '—')
-}
+})

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
+import { test } from './fixtures'
+import { api } from './helpers/api'
 
-export async function testProjectEpicOrdering(page, url) {
-  const create = async (kind, data) => {
-    const response = await page.request.post(`${url}/api/${kind}`, { data })
-    assert.equal(response.status(), 201)
-    return response.json()
-  }
+test('project epic ordering stays presentation-only across live updates, search and reload', async ({
+  page,
+  serverURL: url,
+}) => {
+  const { create } = api(page.request, url)
   const project = await create('projects', { name: 'Epic ordering' })
   const oldActive = await create('epics', { project_id: project.id, title: 'Old active' })
   const oldCompleted = await create('epics', {
@@ -20,7 +21,7 @@ export async function testProjectEpicOrdering(page, url) {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto(`${url}/#project/${project.id}`)
   await page.getByRole('heading', { name: project.name, exact: true }).waitFor()
-  const ordered = async (titles) => {
+  const ordered = async (titles: string[]) => {
     await page.waitForFunction(
       (expected) =>
         JSON.stringify(
@@ -65,4 +66,4 @@ export async function testProjectEpicOrdering(page, url) {
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await ordered(['New active', 'Old completed', 'Old active', 'Newest epic', 'New completed'])
-}
+})
