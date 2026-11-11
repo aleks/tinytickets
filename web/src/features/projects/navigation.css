@@ -1,0 +1,24 @@
+.project-tabs {
+  display: flex;
+  flex: none;
+  gap: 16px;
+  padding: 0;
+  overflow: visible;
+  border-bottom: 1px solid var(--border);
+  margin: -8px 0 22px;
+}
+.project-tabs a {
+  padding: 7px 1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+.project-tabs a:hover {
+  color: var(--text);
+}
+.project-tabs a[aria-current='page'] {
+  color: var(--accent-text);
+  border-bottom-color: var(--accent);
+  font-weight: 550;
+}

@@ -1,0 +1,35 @@
+.more-menu {
+  position: relative;
+}
+.more-menu summary {
+  list-style: none;
+  cursor: pointer;
+}
+.more-menu summary::-webkit-details-marker {
+  display: none;
+}
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 35px;
+  width: 150px;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 5px 20px #0001;
+  z-index: 10;
+  border-radius: 6px;
+}
+.dropdown button {
+  display: block;
+  width: 100%;
+  padding: 5px 7px;
+  font-size: 13px;
+  border-radius: 3px;
+}
+.dropdown button:hover {
+  background: var(--hover);
+}
+.danger-text {
+  color: var(--danger);
+}
