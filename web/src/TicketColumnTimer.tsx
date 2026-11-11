@@ -7,8 +7,13 @@ let now = Date.now()
 let interval: number | undefined
 const listeners = new Set<() => void>()
 const snapshot = () => now
-const tick = () => { now = Date.now(); listeners.forEach(listener => listener()) }
-const wake = () => { if (!document.hidden) tick() }
+const tick = () => {
+  now = Date.now()
+  listeners.forEach((listener) => listener())
+}
+const wake = () => {
+  if (!document.hidden) tick()
+}
 function subscribe(listener: () => void) {
   if (!listeners.size) {
     now = Date.now()
@@ -42,13 +47,41 @@ export function TicketColumnTimer({ status, since }: { status: string; since: st
   if (status !== 'in_progress' && status !== 'ready_for_review') return null
   const label = status === 'in_progress' ? 'In progress' : 'Ready for review'
   const entered = Date.parse(since || '')
-  if (!Number.isFinite(entered)) return <span className="ticket-column-timer unavailable-timer" aria-label={`${label} column time unavailable`} title="Column entry time is unavailable for this ticket. Earlier timing is not inferred from creation or update timestamps."><Clock3 size={12} aria-hidden="true" />—</span>
+  if (!Number.isFinite(entered))
+    return (
+      <span
+        className="ticket-column-timer unavailable-timer"
+        aria-label={`${label} column time unavailable`}
+        title="Column entry time is unavailable for this ticket. Earlier timing is not inferred from creation or update timestamps."
+      >
+        <Clock3 size={12} aria-hidden="true" />—
+      </span>
+    )
   return <KnownColumnTimer label={label} entered={entered} since={since!} />
 }
 
-function KnownColumnTimer({ label, entered, since }: { label: string; entered: number; since: string }) {
+function KnownColumnTimer({
+  label,
+  entered,
+  since,
+}: {
+  label: string
+  entered: number
+  since: string
+}) {
   const current = useSyncExternalStore(subscribe, snapshot)
   const seconds = Math.max(0, Math.floor((current - entered) / 1000))
   const elapsed = formatElapsed(seconds)
-  return <span className="ticket-column-timer" data-elapsed-seconds={seconds} data-status-since={since} aria-label={`Time in ${label}: ${elapsed}`} title={`${label} since ${new Date(entered).toLocaleString()}. Resets on each column move.`}><Clock3 size={12} aria-hidden="true" /><time dateTime={`PT${seconds}S`}>{elapsed}</time></span>
+  return (
+    <span
+      className="ticket-column-timer"
+      data-elapsed-seconds={seconds}
+      data-status-since={since}
+      aria-label={`Time in ${label}: ${elapsed}`}
+      title={`${label} since ${new Date(entered).toLocaleString()}. Resets on each column move.`}
+    >
+      <Clock3 size={12} aria-hidden="true" />
+      <time dateTime={`PT${seconds}S`}>{elapsed}</time>
+    </span>
+  )
 }
