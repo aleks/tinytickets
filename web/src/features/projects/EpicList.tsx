@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowUpRight, Layers, Plus } from 'lucide-react'
+import { Archive, ArrowUpRight, Layers, Plus } from 'lucide-react'
 import type { Project, Epic, Workspace } from '../../shared/types'
 import { SearchField } from '../../shared/ui/SearchField'
 import { EpicCard } from './EpicCard'
@@ -18,8 +18,6 @@ export function EpicList({
   allArchivedEpics,
   archivedEpics,
   navigate,
-  busy,
-  archive,
 }: {
   view: View
   data: Workspace
@@ -32,8 +30,6 @@ export function EpicList({
   allArchivedEpics: Epic[]
   archivedEpics: Epic[]
   navigate: (view: View) => void
-  busy: boolean
-  archive: (epic: Epic, archived: boolean) => void
 }) {
   const [showArchived, setShowArchived] = useState(false)
   const archivedSectionID = useId()
@@ -145,22 +141,12 @@ export function EpicList({
           </div>
           <div className="epic-grid">
             {archivedEpics.map((e) => (
-              <div className="archived-epic-entry" key={e.id}>
-                <EpicCard
-                  epic={e}
-                  data={data}
-                  onClick={() => navigate({ type: 'epic', id: e.id })}
-                />
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => archive(e, false)}
-                  aria-label={`Unarchive ${e.title}`}
-                >
-                  <ArchiveRestore size={14} />
-                  Unarchive
-                </button>
-              </div>
+              <EpicCard
+                key={e.id}
+                epic={e}
+                data={data}
+                onClick={() => navigate({ type: 'epic', id: e.id })}
+              />
             ))}
           </div>
           {!archivedEpics.length && (

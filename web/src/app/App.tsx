@@ -357,8 +357,6 @@ export function App() {
                 allArchivedEpics={allArchivedEpics}
                 archivedEpics={archivedEpics}
                 navigate={navigate}
-                busy={busy}
-                archive={archive}
               />
               {boardView && (
                 <Board
