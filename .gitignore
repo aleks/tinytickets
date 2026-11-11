@@ -5,3 +5,6 @@ tinytickets
 *.db-shm
 *.db-wal
 .DS_Store
+web/coverage/
+web/playwright-report/
+web/test-results/

@@ -45,7 +45,6 @@ export async function testExecutionInsights(page, url) {
   await update('tickets', active.id, { status: 'in_progress', description: 'A non-status edit' })
   assert.equal((await (await page.request.get(historyURL)).json()).events.length, 6)
 
-  const progressURL = `${url}/#project/${project.id}/progress`
   await page.goto(`${url}/#project/${project.id}`)
   const tabs = page.getByRole('navigation', { name: 'Project views', exact: true })
   await tabs.getByRole('link', { name: 'Progress', exact: true }).click()

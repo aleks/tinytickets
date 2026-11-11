@@ -51,12 +51,12 @@ export function DependencyMap({ projectID, data }: { projectID: number; data: Ma
         hideDone,
         focusID: focusChain && selected ? selected.id : undefined,
       }),
-    [data, projectID, includeArchived, expandExternal, hideDone, focusChain, selected?.id],
+    [data, projectID, includeArchived, expandExternal, hideDone, focusChain, selected],
   )
   const nodeByID = new Map(graph.nodes.map((n) => [n.ticket.id, n]))
   const chain = useMemo(
     () => (selected ? dependencyChain(selected.id, data.links) : null),
-    [selected?.id, data.links],
+    [selected, data.links],
   )
   const blockers = selected
     ? data.links

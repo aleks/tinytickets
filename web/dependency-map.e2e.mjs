@@ -122,15 +122,13 @@ export async function testDependencyMap(page, url) {
     graphReady,
     ready.tickets.map((t) => t.id),
   )
-  const canvasNodes = await map
-    .locator('.map-node')
-    .evaluateAll((nodes) =>
-      nodes.map((n) => ({
-        id: Number(n.dataset.ticketId),
-        x: Number.parseFloat(n.style.left),
-        y: Number.parseFloat(n.style.top),
-      })),
-    )
+  const canvasNodes = await map.locator('.map-node').evaluateAll((nodes) =>
+    nodes.map((n) => ({
+      id: Number(n.dataset.ticketId),
+      x: Number.parseFloat(n.style.left),
+      y: Number.parseFloat(n.style.top),
+    })),
+  )
   const edges = await map
     .locator('.map-edge')
     .evaluateAll((paths) =>

@@ -1609,6 +1609,7 @@ function Editor({
   return (
     <div
       className="modal-backdrop"
+      role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) requestClose()
       }}
