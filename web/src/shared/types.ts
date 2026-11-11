@@ -29,6 +29,24 @@ export type CreateTicketInput = Pick<Ticket, 'title' | 'epic_id'> &
   Partial<Pick<Ticket, 'description' | 'status'>>
 export type UpdateTicketInput = Partial<CreateTicketInput>
 export type DeleteResult = { id: number }
+export type DeletionKind = 'projects' | 'epics' | 'tickets'
+export type DeletionOptions = { force?: boolean; confirmation_token?: string }
+export type DeletionPreview = {
+  kind: DeletionKind
+  id: number
+  name: string
+  requires_force: boolean
+  confirmation_token: string
+  counts: {
+    epics: number
+    tickets: number
+    archived_epics: number
+    work_log_entries: number
+    status_events: number
+    dependency_links: number
+    external_dependency_links: number
+  }
+}
 export type WorkLogEntry = {
   id: number
   ticket_id: number

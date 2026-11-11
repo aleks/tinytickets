@@ -3,6 +3,9 @@ import type {
   CreateProjectInput,
   CreateTicketInput,
   DeleteResult,
+  DeletionKind,
+  DeletionOptions,
+  DeletionPreview,
   Epic,
   Link,
   Project,
@@ -85,6 +88,14 @@ async function request<T>(
 }
 
 export const api = {
+  deletionPreview: (kind: DeletionKind, id: number, signal?: AbortSignal) =>
+    request<DeletionPreview>(`${kind}/${id}/deletion-preview`, 'GET', undefined, signal),
+  deleteResource: (
+    kind: DeletionKind,
+    id: number,
+    options?: DeletionOptions,
+    signal?: AbortSignal,
+  ) => request<DeleteResult>(`${kind}/${id}`, 'DELETE', options, signal),
   workspace: (signal?: AbortSignal) => request<Workspace>('state', 'GET', undefined, signal),
   projectExecution: (id: number, signal?: AbortSignal) =>
     request<ProjectExecution>(`projects/${id}/execution`, 'GET', undefined, signal),

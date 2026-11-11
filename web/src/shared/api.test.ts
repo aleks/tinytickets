@@ -12,6 +12,26 @@ function respond(body: unknown, status = 200) {
 }
 
 describe('typed endpoint contracts', () => {
+  it('fetches cancellable deletion previews and sends explicit force/token options', async () => {
+    const fetchMock = respond({ id: 7 })
+    const signal = new AbortController().signal
+    for (const kind of ['projects', 'epics', 'tickets'] as const) {
+      await api.deletionPreview(kind, 7, signal)
+      expect(fetchMock).toHaveBeenLastCalledWith(`/api/${kind}/7/deletion-preview`, {
+        method: 'GET',
+        headers: {},
+        body: undefined,
+        signal,
+      })
+      await api.deleteResource(kind, 7, { force: false, confirmation_token: 'token' }, signal)
+      expect(fetchMock).toHaveBeenLastCalledWith(`/api/${kind}/7`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: false, confirmation_token: 'token' }),
+        signal,
+      })
+    }
+  })
   it('loads workspace, work log, and execution using the existing URLs and signals', async () => {
     const workspace = { projects: [], epics: [], tickets: [], links: [] }
     const fetchMock = respond(workspace)

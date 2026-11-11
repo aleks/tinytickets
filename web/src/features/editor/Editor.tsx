@@ -18,6 +18,7 @@ import type { Dialog } from './dialog'
 import { Modal } from '../../shared/ui/Modal'
 import { EpicFields } from '../projects/EpicFields'
 import { TicketFields } from '../tickets/TicketFields'
+import { DeletionDialog } from '../deletion/DeletionDialog'
 
 export function Editor({
   dialog,
@@ -26,6 +27,7 @@ export function Editor({
   close,
   openTicket,
   openPage,
+  deleted,
 }: {
   dialog: Dialog
   data: Workspace
@@ -33,6 +35,7 @@ export function Editor({
   close: () => void
   openTicket: (t: Ticket) => void
   openPage: (t: Ticket) => void
+  deleted?: (t: Ticket) => void
 }) {
   const item = dialog.item
   const isTicket = dialog.type === 'ticket'
@@ -65,6 +68,7 @@ export function Editor({
     dialog.type === 'epic' ? dialog.item?.archived || false : false,
   )
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [relation, setRelation] = useState('blocked_by')
   const [target, setTarget] = useState('')
@@ -125,19 +129,6 @@ export function Editor({
       setSaving(false)
     }
   }
-  async function remove() {
-    if (!item || saving || !confirm('Permanently delete this ticket and its links?')) return
-    setSaving(true)
-    setError('')
-    try {
-      await mutate(api.deleteTicket(item.id))
-      close()
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setSaving(false)
-    }
-  }
   async function link(method: 'POST' | 'DELETE', link: Link) {
     setSaving(true)
     setError('')
@@ -154,6 +145,23 @@ export function Editor({
     isTicket && item
       ? data.links.filter((l) => l.blocker_id === item.id || l.blocked_id === item.id)
       : []
+
+  if (deleting && dialog.type === 'ticket' && dialog.item) {
+    const ticket = dialog.item
+    return (
+      <DeletionDialog
+        kind="tickets"
+        id={ticket.id}
+        name={ticket.title}
+        mutate={mutate}
+        close={() => setDeleting(false)}
+        deleted={() => {
+          close()
+          deleted?.(ticket)
+        }}
+      />
+    )
+  }
 
   return (
     <Modal
@@ -383,7 +391,7 @@ export function Editor({
                   aria-label="Delete ticket"
                   title="Delete ticket"
                   disabled={saving}
-                  onClick={remove}
+                  onClick={() => setDeleting(true)}
                 >
                   <Trash2 size={16} />
                 </button>
