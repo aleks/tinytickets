@@ -1,0 +1,119 @@
+.board-heading {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.board-tools {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 5px;
+  height: 30px;
+  padding: 0 6px;
+  width: 184px;
+}
+.search:focus-within {
+  border-color: var(--accent);
+}
+.search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  padding: 0;
+  color: var(--text);
+}
+.search input::placeholder {
+  color: var(--muted);
+}
+.search input:focus-visible {
+  outline: none;
+}
+.search .icon-button {
+  width: 16px;
+  height: 20px;
+}
+.board-view-label {
+  font-size: 12px;
+  color: var(--secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.board-symbol {
+  font-size: 16px;
+  color: var(--muted);
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(210px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  align-items: stretch;
+  padding-bottom: 4px;
+}
+.column {
+  background: var(--column);
+  padding: 0 6px 6px;
+  border-radius: 7px;
+  min-height: 360px;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.column.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.column-heading {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 3px;
+}
+.column-heading > svg {
+  color: #969c96;
+}
+.column-in_progress .column-heading > svg {
+  color: #c09c60;
+}
+.column-ready_for_review .column-heading > svg {
+  color: #9b88b8;
+}
+.column-done .column-heading > svg {
+  color: #729b7a;
+}
+.column-heading h3 {
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.column-count {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 1px;
+}
+.column-heading .icon-button {
+  margin-left: auto;
+  height: 24px;
+  width: 24px;
+}
+.column-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

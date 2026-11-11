@@ -1,0 +1,190 @@
+.epics-section {
+  margin-bottom: 24px;
+}
+.archived-epics-section {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+.archived-epic-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  min-width: 0;
+}
+.archived-epic-entry .epic-card {
+  width: 100%;
+  flex: 1;
+  border-style: dashed;
+}
+.archived-epic-entry > .text-button {
+  align-self: end;
+  padding-right: 3px;
+}
+.epic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+  gap: 10px;
+}
+.epic-card {
+  padding: 12px 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: var(--shadow);
+  min-height: 120px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.epic-card:hover,
+.project-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 3px 10px #00000008;
+}
+.epic-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+.project-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.project-dot {
+  background: currentColor;
+  width: 5px;
+  height: 5px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.color-0 {
+  color: #7d8b6b;
+}
+.color-1 {
+  color: #9b80b3;
+}
+.color-2 {
+  color: #6e96a8;
+}
+.color-3 {
+  color: #b39562;
+}
+.color-4 {
+  color: #b07b86;
+}
+[data-theme='dark'] .color-0 {
+  color: #a6ba91;
+}
+[data-theme='dark'] .color-1 {
+  color: #b7a0cd;
+}
+[data-theme='dark'] .color-2 {
+  color: #8db5c7;
+}
+[data-theme='dark'] .color-3 {
+  color: #d0b07b;
+}
+[data-theme='dark'] .color-4 {
+  color: #d49ca7;
+}
+.card-arrow {
+  color: var(--muted);
+  opacity: 0.65;
+}
+.epic-card h3 {
+  font-size: 15px;
+  font-weight: 550;
+  margin-bottom: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.epic-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: var(--secondary);
+}
+.muted {
+  color: var(--muted);
+}
+.progress-track {
+  height: 3px;
+  background: var(--column);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-track > span {
+  display: block;
+  background: var(--accent);
+  height: 100%;
+  border-radius: 3px;
+}
+.badge {
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 450;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  padding: 1px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+.completed-badge {
+  font-size: 12px;
+  padding: 3px 6px;
+}
+.is-completed .progress-track > span {
+  opacity: 0.6;
+}
+.empty-epic {
+  border: 1px dashed var(--border-strong);
+  padding: 16px;
+  border-radius: 7px;
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 92px;
+  color: var(--muted);
+}
+.empty-epic:hover {
+  background: var(--column);
+}
+.empty-icon {
+  width: 42px;
+  height: 42px;
+  background: var(--column);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+}
+.empty-epic > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.empty-epic strong {
+  font-size: 14px;
+  color: var(--secondary);
+  font-weight: 500;
+}
+.empty-epic > span:nth-child(2) > span {
+  font-size: 13px;
+}
+.empty-epic > svg {
+  margin-left: auto;
+}

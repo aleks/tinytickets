@@ -1,0 +1,44 @@
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.project-card,
+.add-project {
+  min-height: 136px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 16px;
+  position: relative;
+}
+.project-icon {
+  margin-bottom: 10px;
+}
+.project-card h3 {
+  font-size: 17px;
+  font-weight: 550;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+.project-card > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.project-card .card-arrow {
+  position: absolute;
+  top: 17px;
+  right: 16px;
+}
+.add-project {
+  border-style: dashed;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--muted);
+}
+.add-project:hover {
+  background: var(--column);
+}

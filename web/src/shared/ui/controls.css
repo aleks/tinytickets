@@ -1,0 +1,73 @@
+.button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border-radius: 5px;
+  min-height: 33px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.button.primary {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 1px 2px #0001;
+  border-color: #00000008;
+}
+.button.primary:hover {
+  background: var(--accent-hover);
+}
+.button.secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--secondary);
+  box-shadow: var(--shadow);
+}
+.button.secondary:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+  min-height: 27px;
+}
+.section-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.section-heading h2 > svg {
+  color: var(--secondary);
+}
+.count {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 400;
+  min-width: 18px;
+  text-align: center;
+  line-height: 18px;
+}
+.text-button {
+  color: var(--secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  padding: 3px 0 3px 5px;
+}
+.text-button:hover {
+  color: var(--accent-text);
+}

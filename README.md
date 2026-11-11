@@ -207,13 +207,17 @@ curl -X POST http://127.0.0.1:8080/api/tickets/1/claim
 
 ## Development
 
-Requires Node 20.19+ (or 22.12+) and npm for frontend work.
+Use Node 22.13+ (or a supported newer version) and npm for frontend work. Existing
+diagram/parser dependencies declare Node 22 engines. See [frontend architecture and
+development](web/README.md) for module ownership, tooling and invalidation behavior.
 
 ```sh
 make build  # npm ci, typecheck, Vite build, then a single static Go binary
 make test   # Go tests with race detector and go vet
+make check  # frontend lint/format/types/unit + assets/binary + Go + browser tests
 npm --prefix web exec -- playwright install chromium
-npm --prefix web test       # pure dependency-map model/layout tests
+npm --prefix web run check  # lint, format, TypeScript, unit/component tests
+npm --prefix web test       # Vitest unit/component suite
 npm --prefix web run test:e2e # isolated browser smoke test against the built binary
 ```
 
@@ -225,4 +229,10 @@ Ready-work tests cover cross-project blockers, completed/archived epics, orderin
 
 Work-log tests cover v3 upgrades/marker repair, persistence, append-only database constraints and ticket deletion, independent concurrent writers, input limits, handoff rollback atomicity, history/timer preservation, REST and HTTP/stdio MCP. Browser regressions cover chronological mixed entries, live remote appends/draft preservation, handoff forms/status, retries, Markdown safety, archives, ticket navigation, both themes and mobile layouts.
 
-Dependency-map model tests cover deterministic non-overlapping fork/join layout, overhead routing and separate connection ports for long arrows, global readiness, external/archive expansion, chain focus versus siblings, hidden completed blockers, empty graphs, cycle recovery and iterative 4,000-ticket chains. They run with `npm test` and before the browser suite. Browser tests compare map readiness with the backend, verify arrow direction, live claims/status/link/epic/deletion changes, direct URLs/history, keyboard selection and ticket links, zoom/fit/scroll, safe titles, empty/archive states and both mobile themes.
+Dependency-map model tests cover deterministic non-overlapping fork/join layout, overhead routing and separate connection ports for long arrows, global readiness, external/archive expansion, chain focus versus siblings, hidden completed blockers, empty graphs, cycle recovery and iterative 4,000-ticket chains. They run with `npm test`; `make check` explicitly runs both unit and browser suites. Browser tests compare map readiness with the backend, verify arrow direction, live claims/status/link/epic/deletion changes, direct URLs/history, keyboard selection and ticket links, zoom/fit/scroll, safe titles, empty/archive states and both mobile themes.
+
+Frontend tests also cover typed API errors/cancellation, hash routing, modal focus,
+dirty-field editor updates, and live-data hooks. Playwright cases have independent
+temporary databases/servers/contexts, including a real external stdio log-update
+case. Controlled network checks verify that healthy initial ticket loading and note
+submission avoid duplicate workspace reads while preserving necessary trailing reads.
