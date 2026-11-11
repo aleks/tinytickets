@@ -5,6 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
+    "types": ["vite/client", "node", "@testing-library/jest-dom/vitest"],
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
