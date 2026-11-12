@@ -75,7 +75,7 @@ func run() error {
 			host = r.Host
 		}
 		if loopback && host != "localhost" && !net.ParseIP(host).IsLoopback() {
-			http.Error(w, "Host not allowed", 403)
+			http.Error(w, "Host not allowed", http.StatusForbidden)
 			return
 		}
 		handler.ServeHTTP(w, r)

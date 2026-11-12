@@ -289,7 +289,10 @@ development](web/README.md) for module ownership, tooling and invalidation behav
 ```sh
 make build  # npm ci, typecheck, Vite build, then a single static Go binary
 make test   # Go tests with race detector and go vet
-make check  # frontend lint/format/types/unit + assets/binary + Go + browser tests
+make fmt-go       # format first-party Go source/tests with gofmt
+make fmt-check-go # fail on unformatted Go source without modifying files
+make lint-go      # gofmt check, go vet, and pinned Staticcheck
+make check  # frontend checks + assets/binary + Go lint/tests + browser tests
 npm --prefix web exec -- playwright install chromium
 npm --prefix web run check  # lint, format, TypeScript, unit/component tests
 npm --prefix web test       # Vitest unit/component suite
@@ -297,6 +300,25 @@ npm --prefix web run test:e2e # isolated browser smoke test against the built bi
 ```
 
 For hot reload, run `go run .` in one terminal and `make dev` in another. Open `http://127.0.0.1:5173`; Vite proxies `/api` and `/mcp` to port 8080. Rebuild `web/dist` with `make web` before building or committing frontend changes. Do not rebuild the frontend concurrently with a Go build/test: embedding reads those files during compilation.
+
+Go development uses **Go 1.26+**, as declared in `go.mod`. Run `make lint-go` and
+`make test` for Go changes. `make check` includes both alongside frontend/browser
+verification; `make test` remains Go-only and does not download a linter.
+
+Staticcheck is pinned to **`honnef.co/go/tools v0.8.2`** in the Makefile and invoked
+with `go run ...@version`, so no globally installed Staticcheck is required or used.
+The first lint run needs network access to download the tool and its dependencies;
+subsequent runs use the Go cache. This does not add tooling dependencies to the
+application's `go.mod` or `go.sum`. Keep the pin compatible with the project's Go
+version when upgrading it. The standard Staticcheck checks are enabled without a
+custom rule suppression file.
+
+The formatting commands include tests and untracked Go source, support paths with
+spaces, and skip `node_modules`, `vendor`, `.git`, `dist` directories and files with
+the standard `// Code generated ... DO NOT EDIT.` marker. Analysis/tests also
+exclude dependency packages under `node_modules`; normal Go package discovery
+excludes vendored packages. `make fmt-check-go` is read-only; use `make fmt-go` to
+apply formatting.
 
 Tests cover persistence, hierarchy validation, status transitions, dependency cycles, deletion rules, REST filtering, origin checks, SSE notifications, and real MCP client/server round trips. Execution tests cover legacy migrations, atomic/no-op/external writes, reopen/review durations, missing starts, UTC bucket boundaries, and project attribution. Archive tests cover schema upgrades/marker recovery, database constraints, REST/MCP round trips, preserved history/metrics, live listing removal/restoration, direct-page editing, search, assignment options, and mobile use. Browser tests use their own temporary database.
 

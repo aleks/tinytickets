@@ -29,8 +29,10 @@ npm run test:e2e -- live-sync --repeat-each=3
 ```
 
 From the repository root, **`make check`** runs the full sequence: frontend checks,
-frontend build, static Go build, Go race tests/vet, and browser tests. **`make test`**
-remains Go-only and excludes third-party Go files inside installed `node_modules`.
+frontend build, Go formatting/vet/Staticcheck, static Go build, Go race tests/vet,
+and browser tests. **`make lint-go`** exposes the Go quality checks separately.
+**`make test`** remains Go-only and excludes third-party Go files inside installed
+`node_modules`.
 Never rebuild frontend assets concurrently with Go compilation: the compiler reads
 those embedded files. Commit rebuilt `dist/`, but not installed dependencies,
 coverage, traces, screenshots, local databases, or the binary.
