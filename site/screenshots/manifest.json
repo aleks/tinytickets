@@ -1,0 +1,273 @@
+{
+  "capturedAt": "2026-11-17T10:18:15.712Z",
+  "baseURL": "http://127.0.0.1:8080",
+  "fictionalDemo": true,
+  "timestampPolicy": "Real API/MCP transitions at actual timestamps; no backdating or mocked responses.",
+  "counts": {
+    "projects": 3,
+    "epics": 7,
+    "tickets": 24,
+    "links": 20,
+    "statuses": {
+      "todo": 9,
+      "in_progress": 5,
+      "ready_for_review": 4,
+      "done": 6
+    }
+  },
+  "projects": {
+    "northstar": {
+      "id": 1,
+      "name": "Northstar Launch",
+      "url": "http://127.0.0.1:8080/#project/1",
+      "completed": 3,
+      "total": 9
+    },
+    "atlas": {
+      "id": 2,
+      "name": "Atlas Platform",
+      "url": "http://127.0.0.1:8080/#project/2",
+      "completed": 2,
+      "total": 8
+    },
+    "fieldnotes": {
+      "id": 3,
+      "name": "Fieldnotes Research",
+      "url": "http://127.0.0.1:8080/#project/3",
+      "completed": 1,
+      "total": 7
+    }
+  },
+  "screenshots": [
+    {
+      "file": "01-workspace-overview.png",
+      "title": "Workspace overview: active epics, mixed statuses, blockers and live timers",
+      "url": "http://127.0.0.1:8080/#",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "02-projects.png",
+      "title": "Three projects and their visible epic counts",
+      "url": "http://127.0.0.1:8080/#projects",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "03-project-board.png",
+      "title": "Northstar project board with ready, blocked, active, review and completed work",
+      "url": "http://127.0.0.1:8080/#project/1",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "04-platform-board-dark.png",
+      "title": "Atlas platform board in dark Slate appearance",
+      "url": "http://127.0.0.1:8080/#project/2",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "dark",
+      "accent": "slate",
+      "capture": "full-page"
+    },
+    {
+      "file": "05-epic-board.png",
+      "title": "A focused epic board",
+      "url": "http://127.0.0.1:8080/#epic/1",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "06-ticket-markdown-mermaid.png",
+      "title": "Full ticket with Markdown, checklist, table, Mermaid diagram and linked details",
+      "url": "http://127.0.0.1:8080/#ticket/3",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "07-work-log-review-handoff.png",
+      "title": "Append-only work log and structured review handoff",
+      "url": "http://127.0.0.1:8080/#ticket/4",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "element"
+    },
+    {
+      "file": "08-dependency-map.png",
+      "title": "Dependency graph with ready work, fork/join blockers and linked archive/external context",
+      "url": "http://127.0.0.1:8080/#project/1/dependencies",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "09-dependency-chain-dark.png",
+      "title": "Selected release dependency chain with cross-project platform prerequisite",
+      "url": "http://127.0.0.1:8080/#project/1/dependencies",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "dark",
+      "accent": "slate",
+      "capture": "full-page"
+    },
+    {
+      "file": "10-execution-insights.png",
+      "title": "Execution metrics, observed work/review timeline and real completion activity",
+      "url": "http://127.0.0.1:8080/#project/1/progress",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "11-platform-progress-dark.png",
+      "title": "Platform progress and ongoing work/review intervals in dark mode",
+      "url": "http://127.0.0.1:8080/#project/2/progress",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "dark",
+      "accent": "slate",
+      "capture": "full-page"
+    },
+    {
+      "file": "12-epics-and-archives.png",
+      "title": "All epics with their preserved archived work",
+      "url": "http://127.0.0.1:8080/#epics",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "13-project-archives-toggle.png",
+      "title": "Archived epics combined into the project epic list",
+      "url": "http://127.0.0.1:8080/#project/1",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "14-archived-epic.png",
+      "title": "Direct access to an archived epic and its preserved completed work",
+      "url": "http://127.0.0.1:8080/#epic/3",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "15-ticket-editor.png",
+      "title": "Ticket editor with status, epic and dependency controls",
+      "url": "http://127.0.0.1:8080/#ticket/4",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "viewport"
+    },
+    {
+      "file": "16-safe-force-delete.png",
+      "title": "Force-delete confirmation previews impact without deleting demo content",
+      "url": "http://127.0.0.1:8080/#project/1",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "viewport"
+    },
+    {
+      "file": "17-appearance-controls-dark.png",
+      "title": "Theme and accent preferences in dark mode",
+      "url": "http://127.0.0.1:8080/#project/2",
+      "viewport": {
+        "width": 1600,
+        "height": 1050
+      },
+      "theme": "dark",
+      "accent": "slate",
+      "capture": "viewport"
+    },
+    {
+      "file": "18-mobile-ticket.png",
+      "title": "Responsive ticket details, rich description and work log",
+      "url": "http://127.0.0.1:8080/#ticket/3",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "accent": "sage",
+      "capture": "full-page"
+    },
+    {
+      "file": "19-mobile-review-dark.png",
+      "title": "Mobile review handoff, chronology and details in dark mode",
+      "url": "http://127.0.0.1:8080/#ticket/4",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "accent": "slate",
+      "capture": "full-page"
+    }
+  ],
+  "pageErrors": [],
+  "serverErrors": []
+}

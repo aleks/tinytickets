@@ -6,6 +6,8 @@ A small, local-first ticket board. One Go binary serves an embedded React fronte
 
 See the [documentation index](docs/README.md) for coding-agent setup and work tracking.
 To let an agent do the setup, give it the [agent setup procedure](docs/setup-for-agents.md).
+For a visual tour, see the [demo screenshot gallery](site/screenshots/README.md).
+To build or host the static documentation website, see [site/README.md](site/README.md).
 
 
 ## Run
@@ -292,7 +294,7 @@ make test   # Go tests with race detector and go vet
 make fmt-go       # format first-party Go source/tests with gofmt
 make fmt-check-go # fail on unformatted Go source without modifying files
 make lint-go      # gofmt check, go vet, and pinned Staticcheck
-make check  # frontend checks + assets/binary + Go lint/tests + browser tests
+make check  # app/site checks + assets/binary + Go lint/tests + browser tests
 npm --prefix web exec -- playwright install chromium
 npm --prefix web run check  # lint, format, TypeScript, unit/component tests
 npm --prefix web test       # Vitest unit/component suite
