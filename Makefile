@@ -26,12 +26,14 @@ lint-go: fmt-check-go
 
 # Asset writes finish before Go embeds them; browser tests use an isolated database.
 check:
+	npm --prefix site run check
 	npm --prefix web run check
 	npm --prefix web run build
 	$(MAKE) lint-go
 	CGO_ENABLED=0 go build -trimpath -o tinytickets .
 	$(MAKE) test
 	npm --prefix web run test:e2e
+	npm --prefix site run test:browser
 
 run:
 	go run .
