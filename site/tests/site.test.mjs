@@ -128,6 +128,28 @@ test('documents have current navigation, labeled images and table headers', () =
   }
 })
 
+test('Pages workflow publishes only generated docs and restricts deployment to main', async () => {
+  const workflow = await readFile(
+    join(site, '..', '.github', 'workflows', 'documentation.yml'),
+    'utf8',
+  )
+  assert.match(workflow, /branches: \[main\]/)
+  assert.match(workflow, /workflow_dispatch:/)
+  assert.match(workflow, /run: npm --prefix site run check/)
+  assert.match(workflow, /path: site\/dist\s/)
+  assert.match(workflow, /if: github.ref == 'refs\/heads\/main'/)
+  assert.match(workflow, /needs: build/)
+  assert.match(workflow, /name: github-pages/)
+  assert.match(workflow, /pages: write/)
+  assert.match(workflow, /id-token: write/)
+  const actions = [...workflow.matchAll(/uses: ([^\s]+)/g)].map((match) => match[1])
+  assert.equal(actions.length, 5)
+  for (const action of actions) assert.match(action, /^actions\/[a-z-]+@[0-9a-f]{40}$/)
+  assert.doesNotMatch(workflow, /secrets\.|enablement: true/)
+  assert.doesNotMatch(await readFile(join(dist, 'index.html'), 'utf8'), /(?:src|href)="\//)
+  await assert.rejects(readFile(join(dist, 'CNAME')), { code: 'ENOENT' })
+})
+
 test('builds are deterministic and need no application server or dependencies', async () => {
   const digest = async () => {
     const hash = createHash('sha256')

@@ -65,23 +65,38 @@ directory to save visual-review captures. Do not commit generated test captures.
 
 ## Publish on GitHub Pages
 
-Deployment is **not enabled automatically**.
+The target URL is **https://aleks.github.io/tinytickets/**. The workflow is
+prepared in `.github/workflows/documentation.yml`. No deployment occurs until
+the workflow is pushed and GitHub Pages is configured.
 
-1. Review `deploy/github-pages.yml.example`.
-2. Copy it to `.github/workflows/documentation.yml` when you want deployment.
-3. In repository **Settings → Pages**, select **GitHub Actions** as the source.
-4. Commit the workflow and website sources to the default branch.
-5. Run the workflow or push a relevant change. Open the deployment URL it reports.
+When you are ready to publish:
 
-The example builds and checks the site, then uploads only `site/dist/`. It does
-not publish the repository root, application files, or a local database. Change
-the branch setting if your default branch is not `main`. Check action versions
-when you enable the template. The template follows the official
+1. In the `aleks/tinytickets` repository, open **Settings → Pages**.
+2. Select **GitHub Actions** as the source. Do not set a custom domain.
+3. Merge and push the website sources and workflow to `main`.
+4. Open **Actions → Publish documentation** and inspect the run.
+5. Open the target URL after the deploy job succeeds.
+
+Later pushes to `main` publish changes to `site/**` or the workflow. You can also
+select **Run workflow** on `main` to publish without a source change. A manual run
+on another branch builds and checks the site but cannot deploy it. If required,
+review the `github-pages` environment's deployment protection rules.
+
+The build job needs only Node.js. It runs the site checks and uploads only
+`site/dist/`. It does not publish the repository root, application files, or a
+local database. A separate deploy job receives Pages and OIDC write permissions;
+the build job has read-only repository access. Action versions are pinned to
+commit hashes. No personal token, application server, or database is required.
+The workflow follows the official
 [static Pages workflow](https://github.com/actions/starter-workflows/blob/main/pages/static.yml).
 
 All page and asset paths are relative. The same output works at a domain root or
 a GitHub project subpath. No base URL, server-side rendering, SPA fallback, API,
 CDN, web fonts, analytics, or client-side JavaScript is required.
+
+Do not add a `CNAME` file for this project URL. The existing browser checks verify
+all pages and assets under `/tinytickets/`. They run locally and in `make check`;
+the deployment workflow runs the dependency-free site checks only.
 
 ## Publish on another static host
 
