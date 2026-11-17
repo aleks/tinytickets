@@ -7,7 +7,7 @@ you and API/MCP access for your agents.
 One Go binary serves an embedded React frontend, a REST API, and an MCP server.
 SQLite stores your workspace locally. No external services or CGO are required.
 
-[![TinyTickets project board with epics, ticket statuses, dependencies, and live timers](site/screenshots/03-project-board.png)](site/screenshots/README.md)
+![TinyTickets project board with epics, ticket statuses, dependencies, and live timers](site/screenshots/03-project-board.png)
 
 ## Features
 
@@ -58,7 +58,6 @@ See [environment and security guidance](docs/environment.md) before remote use.
 - [Let an agent set up TinyTickets](docs/setup-for-agents.md)
 - [Repository work-tracking policy template](docs/templates/repository-policy.md)
 - [Application behavior, execution metrics, and API reference](docs/reference.md)
-- [Screenshot tour](site/screenshots/README.md)
 - [Development and tests](docs/reference.md#development) ·
   [Frontend guide](web/README.md)
 - [Documentation website: build and publishing](site/README.md)

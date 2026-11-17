@@ -6,7 +6,6 @@ A small, local-first ticket board. One Go binary serves an embedded React fronte
 
 See the [documentation index](README.md) for coding-agent setup and work tracking.
 To let an agent do the setup, give it the [agent setup procedure](setup-for-agents.md).
-For a visual tour, see the [demo screenshot gallery](../site/screenshots/README.md).
 To build or host the static documentation website, see [site/README.md](../site/README.md).
 
 Run the commands below from the repository root.

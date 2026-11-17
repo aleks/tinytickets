@@ -42,21 +42,12 @@ The scoped `minimatch` override patches a development-tool glob advisory; reasse
 it when upstream TypeScript ESLint updates its dependency. No production dependency
 versions were changed by this reorganization.
 
-## Logo explorations
+## Logo asset
 
-The installed brand is **Paper Trail**, selected from this gallery. Its canonical
-transparent SVG is `public/paper-trail.svg`, shared by the app sidebar, app favicon,
+The logo SVG is `public/paper-trail.svg`, shared by the app sidebar, app favicon,
 and documentation site. CSS masks apply the current accent palette; the standalone
 favicon adapts to the browser's light/dark mode. Functional ticket icons are not
 brand marks and retain their existing meaning.
-
-Open `/logo-explorations.html` on the running server, or open
-`web/public/logo-explorations.html` directly in a browser. This self-contained,
-offline gallery compares six named SVG proposals in all five supported palettes,
-with light/dark and small monochrome previews. Palette controls only affect the
-gallery; the installed app logo and saved appearance preferences do not change.
-Each concept has a stable name and fragment link for later selection. Its SVG
-geometry is kept in the HTML file. Palette values mirror `src/styles/tokens.css`.
 
 ## Module ownership
 

@@ -545,7 +545,6 @@ export function createPages({ figure, code, gallery }) {
           html: `
           <p>The demo contains 7 epics, 24 tickets, and 20 dependency links. It includes 37 log entries and 8 review handoffs.</p>
           <p>The application recorded real status transitions during demo preparation. The timeline covers minutes, not invented days of activity.</p>
-          <p>The sidebar logo was refreshed to Paper Trail after capture. The editor and deletion images were cropped around their dialogs. The captured application data and timestamps are unchanged. These are not new live captures.</p>
           <p>People, specifications, and verification narratives are fictional. The images do not claim real delivery results.</p>`,
         },
         {

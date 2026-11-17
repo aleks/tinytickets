@@ -1,15 +1,5 @@
 {
   "capturedAt": "2026-11-17T10:18:15.712Z",
-  "brandingRefresh": {
-    "date": "2026-11-17",
-    "logo": "Paper Trail",
-    "source": "web/public/paper-trail.svg",
-    "method": "Replaced sidebar brand pixels only in 14 desktop captures. Verified every pixel outside x12,y14,width37,height39 unchanged. Cropped images 15 and 16 around dialogs; retained pixels unchanged. Images 07, 18 and 19 unchanged. No demo data or captured timestamps changed; these are not fresh live captures.",
-    "dialogCrops": {
-      "15-ticket-editor.png": { "x": 474, "y": 188, "width": 652, "height": 674 },
-      "16-safe-force-delete.png": { "x": 564, "y": 248, "width": 472, "height": 554 }
-    }
-  },
   "baseURL": "http://127.0.0.1:8080",
   "fictionalDemo": true,
   "timestampPolicy": "Real API/MCP transitions at actual timestamps; no backdating or mocked responses.",
