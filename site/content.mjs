@@ -3,7 +3,7 @@ export const repository = 'https://github.com/aleks/tinytickets'
 export const navigation = [
   { label: 'Start', pages: ['index', 'start'] },
   { label: 'Use TinyTickets', pages: ['work', 'tickets', 'dependencies', 'progress', 'safety'] },
-  { label: 'Connect', pages: ['agents'] },
+  { label: 'Connect', pages: ['api', 'mcp', 'agents'] },
   { label: 'Reference', pages: ['screenshots'] },
 ]
 
@@ -293,6 +293,152 @@ export function createPages({ figure, code, gallery }) {
       ],
     },
     {
+      slug: 'api',
+      title: 'REST API',
+      group: 'Connect',
+      description:
+        'Use the JSON REST API to read work, manage tickets, claim tasks, record reviews, and inspect execution.',
+      lead: 'Use the REST API for scripts and integrations. It reads and changes the same SQLite workspace as the application and MCP server.',
+      sections: [
+        {
+          id: 'connection',
+          title: 'Connect to the application',
+          html: `
+          <p>Start <a href="start.html">TinyTickets</a>. The default base address is <code>http://127.0.0.1:8080</code>. API routes start with <code>/api/</code>.</p>
+          <p>Requests and responses use JSON, except the event stream. Send <code>Content-Type: application/json</code> with JSON request bodies. Errors use <code>{"error":"message"}</code> and an HTTP error status.</p>
+          ${code('curl --fail-with-body http://127.0.0.1:8080/api/state')}
+          <div class="notice warning"><p>The server has no built-in authentication. Connect only trusted clients. CORS access is not enabled. Use an authenticated reverse proxy if remote access is required.</p></div>`,
+        },
+        {
+          id: 'resources',
+          title: 'Read and manage work',
+          html: `
+          <p>IDs are positive integers. Use IDs from read or create responses. Do not assume that example IDs exist in your workspace.</p>
+          <div class="table-scroll"><table><caption>Workspace and resource routes</caption><thead><tr><th scope="col">Route</th><th scope="col">Operations</th></tr></thead><tbody>
+            <tr><th scope="row"><code>/api/state</code></th><td>GET a complete workspace, including archived parents, tickets, and links.</td></tr>
+            <tr><th scope="row"><code>/api/projects</code></th><td>GET the list. POST with <code>name</code> to create a project.</td></tr>
+            <tr><th scope="row"><code>/api/epics</code></th><td>GET the list. POST with <code>project_id</code> and <code>title</code> to create an epic.</td></tr>
+            <tr><th scope="row"><code>/api/tickets</code></th><td>GET the list. POST with <code>epic_id</code> and <code>title</code>. Optional fields: <code>description</code>, <code>status</code>.</td></tr>
+            <tr><th scope="row"><code>/api/projects/{id}</code><br><code>/api/epics/{id}</code><br><code>/api/tickets/{id}</code></th><td>GET one resource. PATCH selected fields. DELETE with the safeguards below.</td></tr>
+            <tr><th scope="row"><code>/api/links</code></th><td>GET links. POST or DELETE with <code>blocker_id</code> and <code>blocked_id</code> to add or remove a dependency.</td></tr>
+          </tbody></table></div>
+          <p>PATCH leaves omitted fields unchanged. Tickets use <code>todo</code>, <code>in_progress</code>, <code>ready_for_review</code>, or <code>done</code>. New tickets default to Todo.</p>
+          <p>Filter epics by <code>project_id</code>, <code>completed</code>, or <code>archived</code>. Filter tickets by <code>epic_id</code> or <code>status</code>. Lists omit archived work by default. Use <code>include_archived=true</code> to include it. Direct resource reads still work.</p>
+          <p>PATCH an epic with <code>completed: true</code> to complete it, or <code>archived: true</code> to archive it after completion. Unarchive before reopening. Dependency links can cross projects. The server rejects cycles.</p>`,
+        },
+        {
+          id: 'claims',
+          title: 'Find and claim ready work',
+          html: `
+          <p>GET <code>/api/tickets/ready</code> to plan work. Optional query filters are <code>project_id</code> and <code>epic_id</code>. This read does not reserve a ticket.</p>
+          <p>POST <code>/api/tickets/claim-next</code> with optional scope IDs, or POST <code>/api/tickets/{id}/claim</code> to start one ticket. A claim checks readiness and moves the ticket to In progress in one transaction.</p>
+          ${code('curl --fail-with-body -X POST http://127.0.0.1:8080/api/tickets/claim-next')}
+          <p>Success returns <code>{"claimed":true,"ticket":{...}}</code>. Claim-next returns <code>{"claimed":false,"ticket":null}</code> if no ready work exists. A specific claim returns <code>404</code> for a missing ticket or <code>409</code> if it is no longer ready.</p>
+          <p>A ready ticket is Todo, belongs to an unfinished and unarchived epic, and has only Done blockers. A claim is not an owner lock or lease. Ordinary PATCH status changes do not enforce readiness.</p>`,
+        },
+        {
+          id: 'records',
+          title: 'Record progress and reviews',
+          html: `
+          <p>GET <code>/api/tickets/{id}/work-log</code> to read notes and handoffs. POST to the same route with <code>body</code> and optional <code>author</code> to append a note.</p>
+          <p>POST <code>/api/tickets/{id}/review-handoff</code> with required <code>summary</code> and <code>verification</code>. Optional fields are <code>references</code>, <code>review_notes</code>, and <code>author</code>. It appends the handoff and moves the ticket to review in one operation.</p>
+          <p>This example changes a ticket. Set <code>TICKET_ID</code> to an existing ticket that is ready for review. Replace the example results with actual results.</p>
+          ${code('curl --fail-with-body -X POST "http://127.0.0.1:8080/api/tickets/${TICKET_ID}/review-handoff" \\\n  -H \'Content-Type: application/json\' \\\n  -d \'{"summary":"Added the parser","verification":"Parser tests passed"}\'')}
+          <p>Log entries are append-only. Add a correction instead of editing an entry. Author labels do not authenticate a person. A handoff does not approve the work or restart an existing review timer.</p>`,
+        },
+        {
+          id: 'history',
+          title: 'Read history and live changes',
+          html: `
+          <ul><li>GET <code>/api/tickets/{id}/history</code> for recorded creation and status events, with <code>history_complete</code>.</li><li>GET <code>/api/projects/{id}/execution</code> for execution segments and metrics. Durations use seconds. Unknown start-dependent values are <code>null</code>.</li><li>GET <code>/api/events</code> for Server-Sent Events (SSE). On each <code>change</code> event, fetch <code>/api/state</code> again.</li></ul>
+          <p>Project aggregates retain archived work. Archived epics are omitted from execution rows. See <a href="progress.html">Execution insights</a> for timing limits.</p>`,
+        },
+        {
+          id: 'deletion',
+          title: 'Preview permanent deletion',
+          html: `
+          <p>GET <code>/api/{kind}/{id}/deletion-preview</code> first. The kind is <code>projects</code>, <code>epics</code>, or <code>tickets</code>. Review the counts and external dependency impact.</p>
+          <p>Nonempty parents require a DELETE JSON body with <code>force: true</code> and the preview's <code>confirmation_token</code>. Force defaults to false. Any supplied token is checked inside the deletion transaction.</p>
+          <p>A stale token returns <code>409</code> and deletes nothing. Obtain a fresh preview and explicit confirmation. Do not retry automatically after an interrupted response. Check current state first.</p>
+          <p><a href="safety.html">Archive or delete work</a> explains the impact. The <a href="${repository}/blob/main/README.md#rest-api">repository API reference</a> lists all request fields and response rules. For coding-agent access, see <a href="mcp.html">MCP capabilities</a>.</p>`,
+        },
+      ],
+    },
+    {
+      slug: 'mcp',
+      title: 'MCP capabilities',
+      group: 'Connect',
+      description:
+        'Inspect TinyTickets MCP transports and tools for workspace discovery, claims, logs, reviews, dependencies, and execution.',
+      lead: 'Model Context Protocol (MCP) gives coding agents structured tools for TinyTickets. The tools use the same workspace and safety rules as the REST API.',
+      sections: [
+        {
+          id: 'transports',
+          title: 'Select a transport',
+          html: `
+          <p>Use stdio for a local client. The client starts this command:</p>
+          ${code('/absolute/path/to/tinytickets --mcp-stdio --db /absolute/path/to/tickets.db')}
+          <p>Stdio mode does not start an HTTP server. To share work with the browser application, use the same absolute database path in both processes.</p>
+          <p>For Streamable HTTP, start TinyTickets normally and connect the MCP client to <code>http://127.0.0.1:8080/mcp</code>. This is an MCP endpoint, not a REST route.</p>
+          <div class="notice warning"><p>Connect only trusted clients. There is no built-in authentication. A remote or cloud agent cannot use its own loopback address to reach your computer.</p></div>`,
+        },
+        {
+          id: 'tools',
+          title: 'Choose a tool',
+          html: `
+          <p>The server supplies tool descriptions and input schemas through MCP. Use the client's tool discovery to inspect required fields.</p>
+          <div class="table-scroll"><table><caption>MCP tool capabilities</caption><thead><tr><th scope="col">Tools</th><th scope="col">Capability</th></tr></thead><tbody>
+            <tr><th scope="row"><code>get_workspace</code></th><td>Read the complete project, epic, ticket, and link hierarchy, including archives.</td></tr>
+            <tr><th scope="row"><code>get_ready_tickets</code><br><code>claim_ticket</code><br><code>claim_next_ticket</code></th><td>Plan ready work, then atomically start a ticket.</td></tr>
+            <tr><th scope="row"><code>create_project</code>, <code>update_project</code><br><code>create_epic</code>, <code>update_epic</code><br><code>create_ticket</code>, <code>update_ticket</code></th><td>Create and edit work. Complete or archive epics. Move tickets between epics or status columns.</td></tr>
+            <tr><th scope="row"><code>link_tickets</code><br><code>unlink_tickets</code></th><td>Add or remove a dependency with <code>blocker_id</code> and <code>blocked_id</code>. Cycles are rejected.</td></tr>
+            <tr><th scope="row"><code>get_ticket_work_log</code><br><code>add_work_log</code><br><code>create_review_handoff</code></th><td>Read recorded context, append notes, and prepare reviews.</td></tr>
+            <tr><th scope="row"><code>get_ticket_history</code><br><code>get_project_execution</code></th><td>Inspect status events, execution segments, and project metrics.</td></tr>
+            <tr><th scope="row"><code>get_deletion_preview</code><br><code>delete_project</code>, <code>delete_epic</code>, <code>delete_ticket</code></th><td>Preview impact, then delete explicitly confirmed work.</td></tr>
+          </tbody></table></div>
+          <p>Use IDs from tool results. Updates leave omitted fields unchanged. Workspace reads include archives; inspect each epic's <code>archived</code> flag when you make a visible-work list.</p>`,
+        },
+        {
+          id: 'claims',
+          title: 'Coordinate work with claims',
+          html: `
+          <p>Call <code>get_workspace</code> first. Find the target project and epic. Create new work as Todo, then claim it.</p>
+          <p>Call <code>claim_next_ticket</code> with optional <code>project_id</code> and <code>epic_id</code>, or call <code>claim_ticket</code> with <code>ticket_id</code>. This example shows tool arguments, not a shell command. Replace the example ID with a discovered project ID.</p>
+          ${code('Tool: claim_next_ticket\nArguments: {"project_id": 42}')}
+          <p>A claim requires Todo status, an unfinished and unarchived epic, and every blocker Done. This includes cross-project blockers. Readiness reads do not reserve work.</p>
+          <p>Success returns <code>{"claimed":true,"ticket":{...}}</code>. Claim-next returns <code>{"claimed":false,"ticket":null}</code> when no ready ticket exists. If a specific claim fails, refresh and choose again.</p>
+          <p>A claim starts history and timing. It adds no owner lock, lease, or automatic reassignment. Return abandoned work to Todo explicitly. Use <code>update_ticket</code> for later edits and transitions.</p>`,
+        },
+        {
+          id: 'reviews',
+          title: 'Keep progress and review context',
+          html: `
+          <p>Read <code>get_ticket_work_log</code> before you resume work. Use <code>add_work_log</code> with <code>ticket_id</code>, Markdown <code>body</code>, and optional <code>author</code> for decisions, blockers, tests, and commit references.</p>
+          <p>Use <code>create_review_handoff</code> with <code>ticket_id</code>, <code>summary</code>, and <code>verification</code>. Optional fields are <code>references</code>, <code>review_notes</code>, and <code>author</code>.</p>
+          ${code('Tool: create_review_handoff\nArguments: {\n  "ticket_id": 123,\n  "summary": "Added the parser",\n  "verification": "Parser tests passed",\n  "review_notes": "Check the empty-input case"\n}')}
+          <p>Use a real ticket ID and actual verification results. This tool appends the handoff and moves the ticket to Ready for review in one operation. It does not approve the work. Another handoff while in review does not restart the timer.</p>
+          <p>Keep specifications in descriptions. Logs are append-only, and author labels are informational. Use <a href="progress.html">execution metrics</a> as observed status time, not as effort estimates.</p>`,
+        },
+        {
+          id: 'safety',
+          title: 'Preserve work and confirm deletion',
+          html: `
+          <p>Prefer <code>update_epic</code> with <code>completed: true</code>, then <code>archived: true</code>, when history must remain available. Unarchive before reopening.</p>
+          <p>Before deletion, call <code>get_deletion_preview</code> with <code>kind</code> and <code>id</code>. Review archived descendants, logs, history, and dependency links. A preview does not grant permission to delete.</p>
+          <p>Nonempty parents require explicit <code>force: true</code> and the reviewed <code>confirmation_token</code> on the delete tool. If impact changes, obtain a new preview and confirmation. Never silently replace a token and retry.</p>
+          <p>After an interrupted response, inspect current state before another attempt. See <a href="safety.html">Archive or delete work</a> for permanent effects.</p>`,
+        },
+        {
+          id: 'setup',
+          title: 'Configure the agent workflow',
+          html: `
+          <p>MCP access does not make an agent follow your work procedure. Add repository instructions for claims, notes, verification, and reviews.</p>
+          <p>Continue with <a href="agents.html">Connect a coding agent</a> for the workflow and client setup guides. Use the <a href="${repository}/blob/main/README.md#mcp">repository MCP reference</a> for exact fields.</p>
+          <p>If a tool is missing, restart the server or stdio process with the current binary. Refresh the client's tool list. Older read-then-update claim workflows are not concurrency-safe.</p>`,
+        },
+      ],
+    },
+    {
       slug: 'agents',
       title: 'Connect a coding agent',
       group: 'Connect',
@@ -308,6 +454,7 @@ export function createPages({ figure, code, gallery }) {
           ${code('/absolute/path/to/tinytickets --mcp-stdio --db /absolute/path/to/tickets.db')}
           <p>For an HTTP client, start TinyTickets normally. Connect the client to <code>http://127.0.0.1:8080/mcp</code>.</p>
           <p>Use the same database path for HTTP and stdio processes if they must share work.</p>
+          <p>See <a href="mcp.html">MCP capabilities</a> for the tool reference. Use the <a href="api.html">REST API</a> for scripts that do not use MCP.</p>
           <div class="notice warning"><p>A cloud agent cannot reach your computer through its own loopback address. Connect only trusted clients. TinyTickets has no built-in authentication.</p></div>`,
         },
         {

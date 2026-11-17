@@ -21,8 +21,8 @@ const pages = await Promise.all(
 )
 const ids = (html) => [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1])
 
-test('build output contains nine complete documents and all nineteen real screenshots', async () => {
-  assert.equal(pages.length, 9)
+test('build output contains eleven complete documents and all nineteen real screenshots', async () => {
+  assert.equal(pages.length, 11)
   assert.equal(manifest.screenshots.length, 19)
   const files = (await readdir(dist)).filter((file) => file.endsWith('.html')).sort()
   assert.deepEqual(files, manifest.pages.map((page) => page.file).sort())
@@ -46,6 +46,49 @@ test('build output contains nine complete documents and all nineteen real screen
       await readFile(join(site, '..', 'screenshots', file)),
     )
   }
+})
+
+test('Connect has separate API and MCP references alongside the agent workflow', () => {
+  const api = pages.find((page) => page.file === 'api.html')
+  const mcp = pages.find((page) => page.file === 'mcp.html')
+  assert.ok(api)
+  assert.ok(mcp)
+  for (const { html } of pages) {
+    assert.match(html, /href="api.html"/)
+    assert.match(html, /href="mcp.html"/)
+    assert.match(html, /href="agents.html"/)
+  }
+  for (const route of [
+    '/api/state',
+    '/api/tickets/claim-next',
+    '/api/tickets/{id}/review-handoff',
+    '/api/events',
+    '/api/{kind}/{id}/deletion-preview',
+  ]) {
+    assert.ok(api.html.includes(route), route)
+  }
+  for (const tool of [
+    'get_workspace',
+    'claim_ticket',
+    'claim_next_ticket',
+    'get_ready_tickets',
+    'get_ticket_work_log',
+    'add_work_log',
+    'create_review_handoff',
+    'get_project_execution',
+    'get_deletion_preview',
+    'unlink_tickets',
+  ]) {
+    assert.ok(mcp.html.includes(`<code>${tool}</code>`), tool)
+  }
+  for (const { html } of [api, mcp]) {
+    assert.match(html, /confirmation_token/)
+    assert.match(html, /no built-in authentication/)
+    assert.match(html, /href="safety.html"/)
+    assert.match(html, /<pre><code>/)
+  }
+  assert.match(mcp.html, /--mcp-stdio/)
+  assert.match(mcp.html, /Streamable HTTP/)
 })
 
 test('every local link, image and section target resolves inside the publish directory', async () => {

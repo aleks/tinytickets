@@ -102,6 +102,10 @@ boundary.
 
 ## Edit content and design
 
+The Connect section has a REST API reference (`api.html`), an MCP capability
+reference (`mcp.html`), and the coding-agent workflow guide (`agents.html`).
+Keep routes and tool fields consistent with the backend and repository README.
+
 - Edit `content.mjs` for page text and navigation.
 - Edit `assets/style.css` for layout, responsive rules, and system dark mode.
 - Edit `build.mjs` for the shared page template.

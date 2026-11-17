@@ -88,7 +88,7 @@ try {
             await mkdir(process.env.SITE_SCREENSHOTS, { recursive: true })
             for (const file of mobile
               ? ['index.html', 'screenshots.html']
-              : ['index.html', 'dependencies.html', 'agents.html']) {
+              : ['index.html', 'dependencies.html', 'api.html', 'mcp.html', 'agents.html']) {
               await page.goto(origin + prefix + file)
               const images = await page.locator('main img').all()
               for (const image of images) {
@@ -123,7 +123,7 @@ try {
     'No external services or application API requests',
   )
   assert.ok(
-    requests.every((url) => !url.includes('/api/') && !url.includes('/mcp')),
+    requests.every((url) => !/\/(?:api(?:\/|$)|mcp(?:\/|$))/.test(new URL(url).pathname)),
     'Documentation must not access application data',
   )
   console.log(
