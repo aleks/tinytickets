@@ -6,6 +6,7 @@ A small, local-first ticket board. One Go binary serves an embedded React fronte
 
 See the [documentation index](docs/README.md) for coding-agent setup and work tracking.
 To let an agent do the setup, give it the [agent setup procedure](docs/setup-for-agents.md).
+For a visual tour, see the [demo screenshot gallery](screenshots/README.md).
 
 
 ## Run
