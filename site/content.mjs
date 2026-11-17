@@ -105,7 +105,7 @@ export function createPages({ figure, code, gallery }) {
           title: 'Create the first project',
           html: `
           <p>Select <strong>New project</strong>. Give the project a short name. Then create an epic and add a ticket.</p>
-          <p>Continue with <a href="work.html">Projects and boards</a>. For build commands and API details, use the <a href="${repository}/blob/main/README.md">repository reference</a>.</p>`,
+          <p>Continue with <a href="work.html">Projects and boards</a>. For build commands and API details, use the <a href="${repository}/blob/main/docs/reference.md">repository reference</a>.</p>`,
         },
       ],
     },
@@ -288,7 +288,7 @@ export function createPages({ figure, code, gallery }) {
           html: `
           <p>Archived epics are hidden from timeline rows. They remain in aggregate metrics and recorded completion counts.</p>
           <p>Moving work changes its current project membership. Deleting work removes its contribution to reports.</p>
-          <p>For exact sample and timing rules, use the <a href="${repository}/blob/main/README.md#history-and-metric-definitions">metric reference</a>.</p>`,
+          <p>For exact sample and timing rules, use the <a href="${repository}/blob/main/docs/reference.md#history-and-metric-definitions">metric reference</a>.</p>`,
         },
       ],
     },
@@ -360,7 +360,7 @@ export function createPages({ figure, code, gallery }) {
           <p>GET <code>/api/{kind}/{id}/deletion-preview</code> first. The kind is <code>projects</code>, <code>epics</code>, or <code>tickets</code>. Review the counts and external dependency impact.</p>
           <p>Nonempty parents require a DELETE JSON body with <code>force: true</code> and the preview's <code>confirmation_token</code>. Force defaults to false. Any supplied token is checked inside the deletion transaction.</p>
           <p>A stale token returns <code>409</code> and deletes nothing. Obtain a fresh preview and explicit confirmation. Do not retry automatically after an interrupted response. Check current state first.</p>
-          <p><a href="safety.html">Archive or delete work</a> explains the impact. The <a href="${repository}/blob/main/README.md#rest-api">repository API reference</a> lists all request fields and response rules. For coding-agent access, see <a href="mcp.html">MCP capabilities</a>.</p>`,
+          <p><a href="safety.html">Archive or delete work</a> explains the impact. The <a href="${repository}/blob/main/docs/reference.md#rest-api">repository API reference</a> lists all request fields and response rules. For coding-agent access, see <a href="mcp.html">MCP capabilities</a>.</p>`,
         },
       ],
     },
@@ -433,7 +433,7 @@ export function createPages({ figure, code, gallery }) {
           title: 'Configure the agent workflow',
           html: `
           <p>MCP access does not make an agent follow your work procedure. Add repository instructions for claims, notes, verification, and reviews.</p>
-          <p>Continue with <a href="agents.html">Connect a coding agent</a> for the workflow and client setup guides. Use the <a href="${repository}/blob/main/README.md#mcp">repository MCP reference</a> for exact fields.</p>
+          <p>Continue with <a href="agents.html">Connect a coding agent</a> for the workflow and client setup guides. Use the <a href="${repository}/blob/main/docs/reference.md#mcp">repository MCP reference</a> for exact fields.</p>
           <p>If a tool is missing, restart the server or stdio process with the current binary. Refresh the client's tool list. Older read-then-update claim workflows are not concurrency-safe.</p>`,
         },
       ],
@@ -527,7 +527,7 @@ export function createPages({ figure, code, gallery }) {
           html: `
           <p>Call <code>get_deletion_preview</code> first. Nonempty parents require <code>force: true</code> and the reviewed <code>confirmation_token</code>.</p>
           <p>Force defaults to false. A preview does not grant permission to delete. An agent must not silently replace a stale token and retry.</p>
-          <p>Use the <a href="${repository}/blob/main/README.md#deletion-previews-and-force-confirmation">deletion API reference</a> for request fields and error behavior.</p>`,
+          <p>Use the <a href="${repository}/blob/main/docs/reference.md#deletion-previews-and-force-confirmation">deletion API reference</a> for request fields and error behavior.</p>`,
         },
       ],
     },

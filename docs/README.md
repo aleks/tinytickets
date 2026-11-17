@@ -41,7 +41,7 @@ Give it access to the linked guides and templates, not only the setup page.
 - [Repository policy template](templates/repository-policy.md)
 - [Optional skill template](templates/tinytickets-skill/SKILL.md)
 - [Hooks and plugins](hooks-and-plugins.md)
-- [Application, API, and development reference](../README.md)
+- [Application, API, and development reference](reference.md)
 
 ## Writing style
 
