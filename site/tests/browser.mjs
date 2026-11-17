@@ -44,6 +44,23 @@ try {
             await expect(
               page.getByRole('heading', { level: 1, name: document.title, exact: true }),
             ).toBeVisible()
+            const brand = page.locator('.brand-mark')
+            await expect(brand).toHaveAttribute('aria-hidden', 'true')
+            assert.match(
+              await brand.evaluate((element) => getComputedStyle(element).maskImage),
+              /assets\/favicon\.svg/,
+            )
+            assert.equal(
+              await brand.evaluate((element) => getComputedStyle(element).backgroundColor),
+              await brand.evaluate((element) => {
+                const probe = document.createElement('span')
+                probe.style.color = 'var(--accent)'
+                element.append(probe)
+                const color = getComputedStyle(probe).color
+                probe.remove()
+                return color
+              }),
+            )
             const nav = page.getByRole('navigation', {
               name: mobile ? 'Mobile documentation' : 'Documentation',
               exact: true,

@@ -1,17 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Check,
-  CheckCircle2,
-  Folder,
-  Home,
-  Layers,
-  Menu,
-  Moon,
-  Plus,
-  Sun,
-  Ticket as TicketIcon,
-  X,
-} from 'lucide-react'
+import { Check, CheckCircle2, Folder, Home, Layers, Menu, Moon, Plus, Sun, X } from 'lucide-react'
 import type { Epic, Workspace } from '../shared/types'
 import { viewHref, type View } from './routing'
 import type { Dialog } from '../features/editor/dialog'
@@ -68,9 +56,7 @@ export function AppShell({
       )}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <button className="brand" onClick={() => navigate({ type: 'home' })}>
-          <span className="brand-mark">
-            <TicketIcon size={19} strokeWidth={2.2} />
-          </span>
+          <span className="brand-mark" aria-hidden="true" />
           TinyTickets<span className="local-badge">LOCAL</span>
         </button>
         <nav aria-label="Main navigation">

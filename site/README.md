@@ -125,6 +125,9 @@ Keep routes and tool fields consistent with the backend and repository README.
 - Edit `content.mjs` for page text and navigation.
 - Edit `assets/style.css` for layout, responsive rules, and system dark mode.
 - Edit `build.mjs` for the shared page template.
+- The Paper Trail brand mark and favicon come from `web/public/paper-trail.svg`.
+  The build copies this canonical asset; CSS masks apply each site's accent color
+  without a background tile or rotation. Keep functional ticket icons unchanged.
 - Keep screenshots and their capture manifest in `site/screenshots/`.
 - Rebuild and run the checks after changes.
 

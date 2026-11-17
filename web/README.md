@@ -44,6 +44,12 @@ versions were changed by this reorganization.
 
 ## Logo explorations
 
+The installed brand is **Paper Trail**, selected from this gallery. Its canonical
+transparent SVG is `public/paper-trail.svg`, shared by the app sidebar, app favicon,
+and documentation site. CSS masks apply the current accent palette; the standalone
+favicon adapts to the browser's light/dark mode. Functional ticket icons are not
+brand marks and retain their existing meaning.
+
 Open `/logo-explorations.html` on the running server, or open
 `web/public/logo-explorations.html` directly in a browser. This self-contained,
 offline gallery compares six named SVG proposals in all five supported palettes,

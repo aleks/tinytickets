@@ -27,6 +27,17 @@ test('all accent palettes apply to interface surfaces and persist with accessibl
     page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
     )
+  const brand = page.locator('.brand-mark')
+  await expect(brand).toHaveAttribute('aria-hidden', 'true')
+  await expect(brand).toHaveCSS('transform', 'none')
+  expect(await brand.evaluate((element) => getComputedStyle(element).maskImage)).toContain(
+    'paper-trail.svg',
+  )
+  const faviconURL = await page.locator('link[rel="icon"]').getAttribute('href')
+  expect(faviconURL).toBe('/paper-trail.svg')
+  const favicon = await page.request.get(`${url}${faviconURL}`)
+  expect(favicon.ok()).toBe(true)
+  expect(await favicon.text()).toContain('fill-rule="evenodd"')
   const rgb = (hex: string) =>
     `rgb(${hex
       .slice(1)
@@ -53,11 +64,13 @@ test('all accent palettes apply to interface surfaces and persist with accessibl
   for (const [label, light] of colors) {
     await chooseAccent(label)
     expect(await accentValue()).toBe(light)
+    await expect(brand).toHaveCSS('background-color', rgb(light))
   }
   await page.getByRole('button', { name: 'Switch to dark mode' }).click()
   for (const [label, , dark] of colors) {
     await chooseAccent(label)
     expect(await accentValue()).toBe(dark)
+    await expect(brand).toHaveCSS('background-color', rgb(dark))
     const [background, surface, sidebar, column, input, border] = darkSurfaces[label]
     await checkBackground('html', background)
     await checkBackground('.sidebar', sidebar)

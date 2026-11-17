@@ -69,11 +69,13 @@ a:hover {
   text-decoration: none;
   color: var(--text);
 }
-.brand svg {
+.brand-mark {
   flex: none;
   width: 29px;
   height: 29px;
-  color: var(--accent);
+  background: var(--accent);
+  -webkit-mask: url('favicon.svg') center / contain no-repeat;
+  mask: url('favicon.svg') center / contain no-repeat;
 }
 .brand-note {
   margin: 4px 0 30px 39px;

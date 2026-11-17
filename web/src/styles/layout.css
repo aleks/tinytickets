@@ -24,15 +24,12 @@
   flex-shrink: 0;
 }
 .brand-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex: none;
   width: 29px;
   height: 29px;
-  border-radius: 8px;
   background: var(--accent);
-  color: white;
-  transform: rotate(-7deg);
+  -webkit-mask: url('/paper-trail.svg') center / contain no-repeat;
+  mask: url('/paper-trail.svg') center / contain no-repeat;
 }
 .local-badge {
   font-size: 9px;

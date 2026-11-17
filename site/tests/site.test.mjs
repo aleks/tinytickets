@@ -150,6 +150,19 @@ test('Pages workflow publishes only generated docs and restricts deployment to m
   await assert.rejects(readFile(join(dist, 'CNAME')), { code: 'ENOENT' })
 })
 
+test('documentation uses the canonical Paper Trail brand and favicon', async () => {
+  assert.deepEqual(
+    await readFile(join(dist, 'assets/favicon.svg')),
+    await readFile(join(site, '../web/public/paper-trail.svg')),
+  )
+  for (const page of manifest.pages) {
+    const html = await readFile(join(dist, page.file), 'utf8')
+    assert.match(html, /<span class="brand-mark" aria-hidden="true"><\/span>/)
+    assert.match(html, /rel="icon" href="assets\/favicon.svg"/)
+    assert.doesNotMatch(html, /viewBox="0 0 32 32"/)
+  }
+})
+
 test('builds are deterministic and need no application server or dependencies', async () => {
   const digest = async () => {
     const hash = createHash('sha256')

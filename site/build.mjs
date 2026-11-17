@@ -66,13 +66,15 @@ export async function build() {
   )
   await writeFile(join(output, '.nojekyll'), '')
   await cp(join(source, 'assets'), join(output, 'assets'), { recursive: true })
+  // Share the canonical Paper Trail mark with the application, including its favicon.
+  await cp(join(source, '../web/public/paper-trail.svg'), join(output, 'assets/favicon.svg'))
   for (const file of images.keys())
     await cp(join(screenshots, file), join(output, 'assets', 'screenshots', file))
 
   function nav(current, label) {
     return `<nav aria-label="${label}">${navigation.map((group) => `<div class="nav-group"><p class="nav-label">${escape(group.label)}</p><ul class="nav-list">${group.pages.map((slug) => `<li><a href="${slug}.html"${slug === current ? ' aria-current="page"' : ''}>${escape(bySlug.get(slug).title)}</a></li>`).join('')}</ul></div>`).join('')}</nav>`
   }
-  const brand = `<a class="brand" href="index.html"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="5" y="5" width="23" height="23" rx="5" fill="currentColor"/><path d="M10 11h13M10 16h9M10 21h6" stroke="var(--page)" stroke-width="1.7" stroke-linecap="round"/></svg>TinyTickets</a>`
+  const brand = `<a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true"></span>TinyTickets</a>`
   for (const [index, page] of ordered.entries()) {
     const previous = ordered[index - 1],
       next = ordered[index + 1]
