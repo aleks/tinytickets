@@ -15,8 +15,9 @@ npm --prefix site run build
 
 Publish the **contents of `site/dist/`**. This directory contains complete HTML
 pages, local CSS, an SVG icon, and the 19 existing demo screenshots. The build
-copies images from `screenshots/`; it does not change them or the demo database.
-Keep `screenshots/` in the checkout used for the build.
+copies images from `site/screenshots/`; it does not change them or the demo database.
+Keep `site/screenshots/` in the checkout used for the build. These source images
+belong to the documentation site. Published pages use copies in `assets/screenshots/`.
 
 `site/dist/` is ignored by Git. It is generated, not an authoring directory.
 The builder replaces only an output directory with its generated-output marker.
@@ -109,7 +110,7 @@ Keep routes and tool fields consistent with the backend and repository README.
 - Edit `content.mjs` for page text and navigation.
 - Edit `assets/style.css` for layout, responsive rules, and system dark mode.
 - Edit `build.mjs` for the shared page template.
-- Keep screenshots in the repository-level `screenshots/` directory.
+- Keep screenshots and their capture manifest in `site/screenshots/`.
 - Rebuild and run the checks after changes.
 
 The writing uses short sentences, active voice, direct procedures, and consistent

@@ -43,7 +43,7 @@ test('build output contains eleven complete documents and all nineteen real scre
   for (const file of manifest.screenshots) {
     assert.deepEqual(
       await readFile(join(dist, 'assets', 'screenshots', file)),
-      await readFile(join(site, '..', 'screenshots', file)),
+      await readFile(join(site, 'screenshots', file)),
     )
   }
 })

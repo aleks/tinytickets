@@ -5,7 +5,7 @@ import { createPages, navigation, repository } from './content.mjs'
 
 export const source = fileURLToPath(new URL('.', import.meta.url))
 export const output = join(source, 'dist')
-const screenshots = fileURLToPath(new URL('../screenshots/', import.meta.url))
+const screenshots = fileURLToPath(new URL('./screenshots/', import.meta.url))
 const marker = '.tinytickets-docs-generated'
 const escape = (value) =>
   String(value).replace(
