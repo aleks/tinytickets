@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,15 +100,24 @@ func Open(path string) (*Store, error) {
 		}
 		f.Close()
 	}
-	db, err := sql.Open("sqlite", path)
+	dsn := ":memory:"
+	if path != ":memory:" {
+		absolute, err := filepath.Abs(path)
+		if err != nil {
+			return nil, err
+		}
+		dsn = (&url.URL{Scheme: "file", Path: filepath.ToSlash(absolute)}).String()
+	}
+	// These PRAGMAs are connection-local. The driver applies them whenever
+	// database/sql opens a physical connection, including replacements.
+	params := url.Values{"_pragma": {"foreign_keys(ON)", "busy_timeout(5000)"}}
+	db, err := sql.Open("sqlite", dsn+"?"+params.Encode())
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	_, err = db.Exec(`
-		PRAGMA foreign_keys = ON;
 		PRAGMA journal_mode = WAL;
-		PRAGMA busy_timeout = 5000;
 		CREATE TABLE IF NOT EXISTS projects (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 200)
