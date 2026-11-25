@@ -116,41 +116,7 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	_, err = db.Exec(`
-		PRAGMA journal_mode = WAL;
-		CREATE TABLE IF NOT EXISTS projects (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 200)
-		);
-		CREATE TABLE IF NOT EXISTS epics (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
-			title TEXT NOT NULL CHECK(length(trim(title)) BETWEEN 1 AND 200),
-			completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1))
-		);
-		CREATE TABLE IF NOT EXISTS tickets (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			epic_id INTEGER NOT NULL REFERENCES epics(id) ON DELETE RESTRICT,
-			title TEXT NOT NULL CHECK(length(trim(title)) BETWEEN 1 AND 200),
-			description TEXT NOT NULL DEFAULT '',
-			status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo','in_progress','ready_for_review','done')),
-			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-			updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-		);
-		CREATE TABLE IF NOT EXISTS links (
-			blocker_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-			blocked_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-			PRIMARY KEY(blocker_id, blocked_id), CHECK(blocker_id != blocked_id)
-		);
-		CREATE INDEX IF NOT EXISTS epics_project ON epics(project_id);
-		CREATE INDEX IF NOT EXISTS tickets_epic ON tickets(epic_id);
-		CREATE INDEX IF NOT EXISTS links_blocked ON links(blocked_id);
-	`)
-	if err != nil {
-		db.Close()
-		return nil, err
-	}
-	if err := migrateDatabase(db); err != nil {
+	if err := initializeDatabase(db); err != nil {
 		db.Close()
 		return nil, err
 	}

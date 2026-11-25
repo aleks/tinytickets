@@ -3,7 +3,12 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"time"
+
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 type StatusEvent struct {
@@ -25,25 +30,101 @@ func historyResult(id int64, events []StatusEvent) TicketHistoryResult {
 	return TicketHistoryResult{TicketID: id, HistoryComplete: len(events) > 0 && events[0].Kind == "created", Events: events}
 }
 
-// Database triggers cover REST, MCP, and older processes still using this file.
-// Migration and baseline capture are atomic; historical dates are never guessed.
+const supportedSchemaVersion = 4
+
+const baseSchema = `
+	CREATE TABLE IF NOT EXISTS projects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 200)
+	);
+	CREATE TABLE IF NOT EXISTS epics (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+		title TEXT NOT NULL CHECK(length(trim(title)) BETWEEN 1 AND 200),
+		completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1))
+	);
+	CREATE TABLE IF NOT EXISTS tickets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		epic_id INTEGER NOT NULL REFERENCES epics(id) ON DELETE RESTRICT,
+		title TEXT NOT NULL CHECK(length(trim(title)) BETWEEN 1 AND 200),
+		description TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo','in_progress','ready_for_review','done')),
+		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+		updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+	);
+	CREATE TABLE IF NOT EXISTS links (
+		blocker_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+		blocked_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+		PRIMARY KEY(blocker_id, blocked_id), CHECK(blocker_id != blocked_id)
+	);
+	CREATE INDEX IF NOT EXISTS epics_project ON epics(project_id);
+	CREATE INDEX IF NOT EXISTS tickets_epic ON tickets(epic_id);
+	CREATE INDEX IF NOT EXISTS links_blocked ON links(blocked_id);
+`
+
+func schemaVersion(ctx context.Context, q readyQuerier) (int, error) {
+	var version int
+	if err := q.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return 0, err
+	}
+	if version > supportedSchemaVersion {
+		return version, fmt.Errorf("database schema version %d is newer than supported version %d", version, supportedSchemaVersion)
+	}
+	return version, nil
+}
+
+func initializeDatabase(db *sql.DB) error {
+	ctx := context.Background()
+	// Reject unsupported files before even changing their persistent journal mode.
+	if _, err := schemaVersion(ctx, db); err != nil {
+		return err
+	}
+	if err := enableWAL(ctx, db); err != nil {
+		return err
+	}
+	return migrateDatabase(db)
+}
+
+func enableWAL(ctx context.Context, db *sql.DB) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
+			var se *sqlite.Error
+			if !errors.As(err, &se) || se.Code()&0xff != sqlite3.SQLITE_BUSY {
+				return fmt.Errorf("configure journal mode: %w", err)
+			}
+			// Concurrent first opens can contend while switching journal mode.
+			// Retrying this idempotent setting is safe; application writes are
+			// never retried, including commits with an uncertain outcome.
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("configure journal mode: %w", ctx.Err())
+			case <-ticker.C:
+			}
+			continue
+		}
+		return nil
+	}
+}
+
+// Initialization, upgrades and baseline capture share one writer reservation.
+// Recheck the version after acquiring it: another process may have migrated first.
 func migrateDatabase(db *sql.DB) error {
 	ctx := context.Background()
-	conn, err := db.Conn(ctx)
+	conn, err := beginWrite(ctx, db)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	defer conn.Rollback()
+	version, err := schemaVersion(ctx, conn)
+	if err != nil {
 		return err
 	}
-	defer conn.ExecContext(ctx, "ROLLBACK")
-	var version int
-	if err = conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+	if _, err := conn.ExecContext(ctx, baseSchema); err != nil {
 		return err
-	}
-	if version > 4 {
-		return fmt.Errorf("database schema version %d is newer than supported version 4", version)
 	}
 	if version < 2 {
 		// v1 binaries unconditionally reset user_version on open. Existing v2
@@ -95,12 +176,11 @@ func migrateDatabase(db *sql.DB) error {
 		}
 	}
 	if version < 4 {
-		if err = migrateWorkLog(ctx, conn); err != nil {
+		if err = migrateWorkLog(ctx, conn.Conn); err != nil {
 			return err
 		}
 	}
-	_, err = conn.ExecContext(ctx, "COMMIT")
-	return err
+	return conn.Commit()
 }
 
 func historyTx(ctx context.Context, tx *sql.Tx, ticketID, projectID int64) ([]StatusEvent, error) {
