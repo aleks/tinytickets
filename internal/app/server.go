@@ -41,14 +41,6 @@ func (a *App) publish() {
 	}
 }
 
-func (a *App) Mutate(ctx context.Context, kind, action string, id int64, in Input) (any, error) {
-	out, err := a.Store.Mutate(ctx, kind, action, id, in)
-	if err == nil {
-		a.publish()
-	}
-	return out, err
-}
-
 // WatchDatabase also picks up writes made by a separate --mcp-stdio process.
 func (a *App) WatchDatabase(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
@@ -190,23 +182,22 @@ func respond(w http.ResponseWriter, data any, err error, success int) {
 	json.NewEncoder(w).Encode(data)
 }
 
-func readInput(r *http.Request) (Input, error) {
-	raw, err := io.ReadAll(r.Body)
-	if err != nil {
-		return Input{}, invalid("Request body is too large or unreadable")
-	}
-	return decodeInput(raw)
-}
-
 // Bodies accept only their documented object fields. An absent body is
 // equivalent to {} so an unscoped claim does not require a dummy JSON payload.
 func readObjectBody(r *http.Request, out any) error {
+	return decodeObjectBody(r, out, true)
+}
+
+func decodeObjectBody(r *http.Request, out any, allowEmpty bool) error {
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
 		return invalid("Request body is too large or unreadable")
 	}
 	text := strings.TrimSpace(string(raw))
 	if text == "" {
+		if !allowEmpty {
+			return invalid("Input must be a JSON object")
+		}
 		text = "{}"
 	}
 	if !strings.HasPrefix(text, "{") {
@@ -221,6 +212,16 @@ func readObjectBody(r *http.Request, out any) error {
 		return invalid("Input must contain exactly one JSON object")
 	}
 	return nil
+}
+
+func handleInput[In, Out any](w http.ResponseWriter, r *http.Request, status int, fn func(In) (Out, error)) {
+	var in In
+	if err := decodeObjectBody(r, &in, false); err != nil {
+		respond(w, nil, err, 0)
+		return
+	}
+	out, err := fn(in)
+	respond(w, out, err, status)
 }
 
 func (a *App) collection(w http.ResponseWriter, r *http.Request) {
@@ -302,17 +303,21 @@ func (a *App) collection(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, &APIError{405, "Method not allowed"}, 0)
 		return
 	}
-	in, err := readInput(r)
-	if err != nil {
-		respond(w, nil, err, 0)
-		return
+	ctx := r.Context()
+	switch kind {
+	case "projects":
+		handleInput(w, r, 201, func(in CreateProjectInput) (Project, error) { return a.CreateProject(ctx, in) })
+	case "epics":
+		handleInput(w, r, 201, func(in CreateEpicInput) (Epic, error) { return a.CreateEpic(ctx, in) })
+	case "tickets":
+		handleInput(w, r, 201, func(in CreateTicketInput) (Ticket, error) { return a.CreateTicket(ctx, in) })
+	case "links":
+		if r.Method == "DELETE" {
+			handleInput(w, r, 200, func(in LinkInput) (Link, error) { return a.DeleteLink(ctx, in) })
+		} else {
+			handleInput(w, r, 201, func(in LinkInput) (Link, error) { return a.CreateLink(ctx, in) })
+		}
 	}
-	action, status := "create", 201
-	if r.Method == "DELETE" {
-		action, status = "delete", 200
-	}
-	out, err := a.Mutate(r.Context(), kind, action, 0, in)
-	respond(w, out, err, status)
 }
 
 func matchID(r *http.Request, key string, id int64) bool {
@@ -383,18 +388,15 @@ func (a *App) item(w http.ResponseWriter, r *http.Request) {
 		respond(w, out, err, 200)
 		return
 	}
-	action := "delete"
-	var in Input
-	if r.Method == "PATCH" {
-		action = "update"
-		in, err = readInput(r)
-		if err != nil {
-			respond(w, nil, err, 0)
-			return
-		}
+	ctx := r.Context()
+	switch kind {
+	case "projects":
+		handleInput(w, r, 200, func(in UpdateProjectInput) (Project, error) { return a.UpdateProject(ctx, id, in) })
+	case "epics":
+		handleInput(w, r, 200, func(in UpdateEpicInput) (Epic, error) { return a.UpdateEpic(ctx, id, in) })
+	case "tickets":
+		handleInput(w, r, 200, func(in UpdateTicketInput) (Ticket, error) { return a.UpdateTicket(ctx, id, in) })
 	}
-	out, err := a.Mutate(r.Context(), kind, action, id, in)
-	respond(w, out, err, 200)
 }
 
 func (a *App) events(w http.ResponseWriter, r *http.Request) {

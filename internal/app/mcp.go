@@ -43,59 +43,35 @@ func (a *App) newMCP() *mcp.Server {
 	}) (ProjectExecution, error) {
 		return a.Store.ProjectExecution(ctx, in.ProjectID)
 	})
-	addTool(s, "create_project", "Create a project.", func(ctx context.Context, in struct {
-		Name string `json:"name" jsonschema:"Project name"`
-	}) (any, error) {
-		return a.Mutate(ctx, "projects", "create", 0, Input{Name: &in.Name})
-	})
+	addTool(s, "create_project", "Create a project.", a.CreateProject)
 	addTool(s, "update_project", "Rename a project.", func(ctx context.Context, in struct {
 		ID   int64  `json:"id"`
 		Name string `json:"name"`
-	}) (any, error) {
-		return a.Mutate(ctx, "projects", "update", in.ID, Input{Name: &in.Name})
+	}) (Project, error) {
+		return a.UpdateProject(ctx, in.ID, UpdateProjectInput{Name: &in.Name})
 	})
-	addTool(s, "create_epic", "Create an epic in a project.", func(ctx context.Context, in struct {
-		ProjectID int64  `json:"project_id"`
-		Title     string `json:"title"`
-	}) (any, error) {
-		return a.Mutate(ctx, "epics", "create", 0, Input{ProjectID: &in.ProjectID, Title: &in.Title})
-	})
+	addTool(s, "create_epic", "Create an epic in a project.", a.CreateEpic)
 	addTool(s, "update_epic", "Rename, move, complete, reopen, archive, or unarchive an epic. Only completed epics can be archived. Unarchive before reopening; a combined archived:false, completed:false update is valid. Archiving preserves tickets/history/direct links. Omitted fields remain unchanged.", func(ctx context.Context, in struct {
 		ID        int64   `json:"id"`
 		Title     *string `json:"title,omitempty"`
 		ProjectID *int64  `json:"project_id,omitempty"`
 		Completed *bool   `json:"completed,omitempty"`
 		Archived  *bool   `json:"archived,omitempty"`
-	}) (any, error) {
-		return a.Mutate(ctx, "epics", "update", in.ID, Input{Title: in.Title, ProjectID: in.ProjectID, Completed: in.Completed, Archived: in.Archived})
+	}) (Epic, error) {
+		return a.UpdateEpic(ctx, in.ID, UpdateEpicInput{Title: in.Title, ProjectID: in.ProjectID, Completed: in.Completed, Archived: in.Archived})
 	})
-	addTool(s, "create_ticket", "Create a ticket in an epic. Status defaults to todo. For new agent work, create as todo then use claim_ticket before starting.", func(ctx context.Context, in struct {
-		EpicID      int64   `json:"epic_id"`
-		Title       string  `json:"title"`
-		Description *string `json:"description,omitempty"`
-		Status      *string `json:"status,omitempty" jsonschema:"todo, in_progress, ready_for_review, or done"`
-	}) (any, error) {
-		return a.Mutate(ctx, "tickets", "create", 0, Input{EpicID: &in.EpicID, Title: &in.Title, Description: in.Description, Status: in.Status})
-	})
+	addTool(s, "create_ticket", "Create a ticket in an epic. Status defaults to todo. For new agent work, create as todo then use claim_ticket before starting.", a.CreateTicket)
 	addTool(s, "update_ticket", "Edit a ticket, make subsequent status changes, or assign another epic. Before starting new work prefer claim_ticket/claim_next_ticket, not separate reads and status updates. This compatibility operation does not enforce readiness or ownership. Omitted fields remain unchanged.", func(ctx context.Context, in struct {
 		ID          int64   `json:"id"`
 		EpicID      *int64  `json:"epic_id,omitempty"`
 		Title       *string `json:"title,omitempty"`
 		Description *string `json:"description,omitempty"`
 		Status      *string `json:"status,omitempty" jsonschema:"todo, in_progress, ready_for_review, or done"`
-	}) (any, error) {
-		return a.Mutate(ctx, "tickets", "update", in.ID, Input{EpicID: in.EpicID, Title: in.Title, Description: in.Description, Status: in.Status})
+	}) (Ticket, error) {
+		return a.UpdateTicket(ctx, in.ID, UpdateTicketInput{EpicID: in.EpicID, Title: in.Title, Description: in.Description, Status: in.Status})
 	})
-	type linkInput struct {
-		BlockerID int64 `json:"blocker_id" jsonschema:"The ticket that blocks the other"`
-		BlockedID int64 `json:"blocked_id" jsonschema:"The ticket that is blocked"`
-	}
-	addTool(s, "link_tickets", "Add a dependency: blocker_id blocks blocked_id. Rejects self-links and dependency cycles. Idempotent.", func(ctx context.Context, in linkInput) (any, error) {
-		return a.Mutate(ctx, "links", "create", 0, Input{BlockerID: in.BlockerID, BlockedID: in.BlockedID})
-	})
-	addTool(s, "unlink_tickets", "Remove a directed dependency. Idempotent.", func(ctx context.Context, in linkInput) (any, error) {
-		return a.Mutate(ctx, "links", "delete", 0, Input{BlockerID: in.BlockerID, BlockedID: in.BlockedID})
-	})
+	addTool(s, "link_tickets", "Add a dependency: blocker_id blocks blocked_id. Rejects self-links and dependency cycles. Idempotent.", a.CreateLink)
+	addTool(s, "unlink_tickets", "Remove a directed dependency. Idempotent.", a.DeleteLink)
 	a.addDeletionTools(s)
 	return s
 }

@@ -185,7 +185,7 @@ Keep task specifications in descriptions. Prefer `add_work_log` for implementati
 
 ## REST API
 
-All requests/responses are JSON, except the SSE endpoint. Errors use `{ "error": "message" }` with an appropriate HTTP status. No CORS access is enabled.
+All requests/responses are JSON, except the SSE endpoint. Request bodies accept only the documented fields for that resource and operation; unknown or resource-inapplicable fields are rejected. Errors use `{ "error": "message" }` with an appropriate HTTP status. No CORS access is enabled.
 
 | Method | Endpoint | Body / filters |
 | --- | --- | --- |
