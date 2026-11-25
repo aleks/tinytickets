@@ -120,20 +120,20 @@ boundary.
 
 The Connect section has a REST API reference (`api.html`), an MCP capability
 reference (`mcp.html`), and the coding-agent workflow guide (`agents.html`).
-Keep routes and tool fields consistent with the backend and repository README.
+Keep routes and tool fields consistent with the backend and `docs/reference.md`.
 
 - Edit `content.mjs` for page text and navigation.
 - Edit `assets/style.css` for layout, responsive rules, and system dark mode.
 - Edit `build.mjs` for the shared page template.
 - The shared logo and favicon come from `web/public/paper-trail.svg`.
   The build copies this canonical asset; CSS masks apply each site's accent color
-  without a background tile or rotation. Keep functional ticket icons unchanged.
+  without a background tile or rotation. Functional ticket icons are separate from
+  the logo asset.
 - Keep screenshots and their capture manifest in `site/screenshots/`.
 - Rebuild and run the checks after changes.
 
 The writing uses short sentences, active voice, direct procedures, and consistent
-technical terms. It follows ASD-STE100 principles. The user's “STE-1000” is
-interpreted as ASD-STE100, not a separate standard. This is a writing target, not
+technical terms. It follows ASD-STE100 principles. This is a writing target, not
 a claim of formal vocabulary validation or certified compliance.
 
 The design is a documentation layout: sidebar navigation, local section links,

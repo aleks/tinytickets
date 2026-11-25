@@ -47,6 +47,5 @@ Give it access to the linked guides and templates, not only the setup page.
 
 These pages use short sentences, active voice, and direct procedure steps.
 The style follows ASD-STE100 Simplified Technical English principles.
-“ASD-STE1000” is treated as a reference to ASD-STE100.
 This is a style target, not a claim of full standard compliance.
 Product names, file names, and API identifiers are technical terms.

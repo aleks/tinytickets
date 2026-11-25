@@ -2,14 +2,12 @@
 
 TinyTickets uses React, TypeScript, Vite and plain CSS. Go embeds the committed
 `dist/` directory; Node and the development tools are not needed to run the binary.
-There is no client state framework, router package, generated API client, or hosted
-CI configuration.
+There is no client state framework, router package, or generated API client.
 
 ## Setup and commands
 
-Use Node **22.13+** (or a supported newer version) and npm. The new development
-tools also support Node 20.19, but existing Mermaid/parser dependencies declare
-Node 22 engines, so Node 22+ is recommended for clean installs.
+Use Node **22.13+** (or a supported newer version) and npm. Mermaid/parser
+dependencies require Node 22 or later.
 
 ```sh
 npm ci
@@ -31,7 +29,7 @@ npm run test:e2e -- live-sync --repeat-each=3
 From the repository root, **`make check`** runs the full sequence: frontend checks,
 frontend build, Go formatting/vet/Staticcheck, static Go build, Go race tests/vet,
 and browser tests. **`make lint-go`** exposes the Go quality checks separately.
-**`make test`** remains Go-only and excludes third-party Go files inside installed
+**`make test`** runs Go checks only and excludes third-party Go files inside installed
 `node_modules`.
 Never rebuild frontend assets concurrently with Go compilation: the compiler reads
 those embedded files. Commit rebuilt `dist/`, but not installed dependencies,
@@ -39,15 +37,14 @@ coverage, traces, screenshots, local databases, or the binary.
 
 ESLint 9 is kept compatible with the current accessibility plugin's peer range.
 The scoped `minimatch` override patches a development-tool glob advisory; reassess
-it when upstream TypeScript ESLint updates its dependency. No production dependency
-versions were changed by this reorganization.
+it when upstream TypeScript ESLint updates its dependency.
 
 ## Logo asset
 
 The logo SVG is `public/paper-trail.svg`, shared by the app sidebar, app favicon,
 and documentation site. CSS masks apply the current accent palette; the standalone
 favicon adapts to the browser's light/dark mode. Functional ticket icons are not
-brand marks and retain their existing meaning.
+brand marks.
 
 ## Module ownership
 
@@ -86,8 +83,8 @@ already committed.
 
 `App` owns composition, selection/dialog state and user operations. `AppShell` owns
 navigation and page framing. Hash parsing/link generation are pure and tested;
-existing deep URLs and browser history are preserved. Modal focus and dismissal are
-shared, but field ownership remains with features. Editors submit only changed
+deep URLs and browser history are supported. Modal focus and dismissal are
+shared, but field ownership belongs to features. Editors submit only changed
 fields so refreshes cannot undo another agent's unrelated edits.
 
 `DeletionDialog` obtains authoritative aggregate impact from the server and sends
@@ -121,18 +118,18 @@ ID so late reads cannot erase an accepted append. Changing ticket/project keys
 cannot display an old resource's response.
 
 Under the controlled healthy-SSE browser scenario, initial ticket loading and one
-note submission each require **one** workspace GET rather than the audited two.
+note submission each require **one** workspace GET.
 This is not a blanket one-request promise: delayed connections, polling and writes
 during reads legitimately require additional snapshots. Prefer safe invalidation
 over suppressing real changes. Keep the shared one-second card clock separate from
-network activity; heavy views and Mermaid remain lazy-loaded.
+network activity; heavy views and Mermaid are lazy-loaded.
 
 ## Styling and tests
 
 `src/style.css` is an explicit import-order manifest. Theme/base/layout, shared
-controls and feature styles retain the original cascade, including responsive
+controls and feature styles load in that order, with responsive
 overrides at the end. Preserve that order when moving rules; the dependency map's
-styles remain with its lazy feature. Appearance preferences stay in localStorage,
+styles belong to its lazy feature. Appearance preferences stay in localStorage,
 with first-paint initialization in `index.html`. Do not add a CSS framework or
 redesign visuals as part of maintenance work.
 
@@ -147,7 +144,3 @@ and failure traces/screenshots. Tests never connect to the user's server/databas
 or depend on an earlier spec's IDs, theme or clock. The stdio live-sync case starts
 a separate MCP process against that test's own database. Keep all tests individually
 runnable, and seed API entities through the shared helpers instead of fixed IDs.
-
-Vendor chunk tuning, runtime dependency upgrades, broader compiler strictness,
-virtualization and adding a CI provider remain separate decisions, not prerequisites
-for this structure.

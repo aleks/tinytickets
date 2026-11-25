@@ -278,7 +278,7 @@ export function createPages({ figure, code, gallery }) {
           id: 'history',
           title: 'Distinguish missing history from zero time',
           html: `
-          <p>A legacy ticket can have incomplete history. Unknown start times remain unavailable and are excluded from start-dependent samples.</p>
+          <p>A ticket can have incomplete recorded history. Unknown start times remain unavailable and are excluded from start-dependent samples.</p>
           <p>New Todo tickets appear under Not started. Tickets without usable recorded execution appear under Timing unavailable.</p>
           <p>Recorded completions count a ticket once at its first observed completion. A later reopen does not create another first completion.</p>`,
         },
@@ -434,7 +434,7 @@ export function createPages({ figure, code, gallery }) {
           html: `
           <p>MCP access does not make an agent follow your work procedure. Add repository instructions for claims, notes, verification, and reviews.</p>
           <p>Continue with <a href="agents.html">Connect a coding agent</a> for the workflow and client setup guides. Use the <a href="${repository}/blob/main/docs/reference.md#mcp">repository MCP reference</a> for exact fields.</p>
-          <p>If a tool is missing, restart the server or stdio process with the current binary. Refresh the client's tool list. Older read-then-update claim workflows are not concurrency-safe.</p>`,
+          <p>If a tool is missing, restart the server or stdio process with the current binary. Refresh the client's tool list. Use claim tools to start ready work; separate readiness reads and status updates are not concurrency-safe.</p>`,
         },
       ],
     },
