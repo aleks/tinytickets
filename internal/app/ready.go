@@ -149,7 +149,7 @@ func (s *Store) ClaimTicket(ctx context.Context, f ReadyFilter, ticketID *int64)
 			if !exists {
 				return out, missing()
 			}
-			return out, &APIError{409, "Ticket is not ready: it must be todo, in an unfinished/unarchived epic, with every blocker done"}
+			return out, conflict("Ticket is not ready: it must be todo, in an unfinished/unarchived epic, with every blocker done")
 		}
 		// No eligible ticket is a successful, explicit no-work result.
 		err = conn.Commit()

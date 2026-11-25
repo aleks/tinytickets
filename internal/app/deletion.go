@@ -194,10 +194,10 @@ func (s *Store) Delete(ctx context.Context, kind string, id int64, options Delet
 		return nil, err
 	}
 	if options.ConfirmationToken != nil && *options.ConfirmationToken != p.ConfirmationToken {
-		return nil, &APIError{409, "Deletion impact changed. Review the updated preview and confirm again."}
+		return nil, conflict("Deletion impact changed. Review the updated preview and confirm again.")
 	}
 	if p.RequiresForce && !options.Force {
-		return nil, &APIError{409, "This item contains work. Review the deletion preview and explicitly confirm with force and confirmation_token."}
+		return nil, conflict("This item contains work. Review the deletion preview and explicitly confirm with force and confirmation_token.")
 	}
 	epics, tickets := deletionScope(kind)
 	if _, err = conn.ExecContext(ctx, "DELETE FROM tickets WHERE id IN ("+tickets+")", id); err != nil {

@@ -74,15 +74,6 @@ type Input struct {
 	BlockedID   int64   `json:"blocked_id,omitempty"`
 }
 
-type APIError struct {
-	Status  int
-	Message string
-}
-
-func (e *APIError) Error() string  { return e.Message }
-func invalid(message string) error { return &APIError{400, message} }
-func missing() error               { return &APIError{404, "Not found"} }
-
 type Store struct {
 	db *sql.DB
 	mu sync.RWMutex
@@ -266,7 +257,7 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 	exists := func(table string, id int64) error {
 		var n int
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM "+table+" WHERE id = ?", id).Scan(&n); err != nil {
-			return err
+			return fmt.Errorf("check %s existence: %w", table, err)
 		}
 		if n == 0 {
 			return missing()
@@ -293,12 +284,18 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 	if action != "delete" {
 		if kind == "epics" && in.ProjectID != nil {
 			if err := exists("projects", *in.ProjectID); err != nil {
-				return nil, invalid("Project does not exist")
+				if errors.Is(err, ErrNotFound) {
+					return nil, invalid("Project does not exist")
+				}
+				return nil, err
 			}
 		}
 		if kind == "tickets" && in.EpicID != nil {
 			if err := exists("epics", *in.EpicID); err != nil {
-				return nil, invalid("Epic does not exist")
+				if errors.Is(err, ErrNotFound) {
+					return nil, invalid("Epic does not exist")
+				}
+				return nil, err
 			}
 		}
 	}
@@ -310,7 +307,10 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 		if create {
 			for _, ticketID := range []int64{in.BlockerID, in.BlockedID} {
 				if err := exists("tickets", ticketID); err != nil {
-					return nil, invalid("Linked ticket does not exist")
+					if errors.Is(err, ErrNotFound) {
+						return nil, invalid("Linked ticket does not exist")
+					}
+					return nil, err
 				}
 			}
 			var cycle bool
@@ -417,14 +417,6 @@ func value[T any](p *T, fallback T) T {
 		return *p
 	}
 	return fallback
-}
-
-func errorStatus(err error) (int, string) {
-	var api *APIError
-	if errors.As(err, &api) {
-		return api.Status, api.Message
-	}
-	return 500, "Internal server error"
 }
 
 func decodeInput(raw json.RawMessage) (Input, error) {

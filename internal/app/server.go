@@ -179,7 +179,7 @@ func respond(w http.ResponseWriter, data any, err error, success int) {
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		status, message := errorStatus(err)
-		if status == 500 {
+		if status >= 500 {
 			slog.Error("request failed", "error", err)
 		}
 		w.WriteHeader(status)

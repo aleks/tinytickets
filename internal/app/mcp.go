@@ -2,13 +2,22 @@ package app
 
 import (
 	"context"
+	"errors"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"log/slog"
 )
 
 func addTool[In, Out any](s *mcp.Server, name, description string, fn func(context.Context, In) (Out, error)) {
 	mcp.AddTool(s, &mcp.Tool{Name: name, Description: description}, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		out, err := fn(ctx, in)
-		return nil, out, err
+		if err != nil {
+			info := classifyError(err)
+			if info.kind == nil || info.kind == ErrUnavailable {
+				slog.Error("MCP tool failed", "tool", name, "error", err)
+			}
+			return nil, out, errors.New(info.message)
+		}
+		return nil, out, nil
 	})
 }
 

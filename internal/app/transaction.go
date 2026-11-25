@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"time"
 )
 
@@ -19,11 +20,11 @@ type writeTx struct {
 func beginWrite(ctx context.Context, db *sql.DB) (*writeTx, error) {
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("acquire write connection: %w", err)
 	}
 	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		_ = conn.Close()
-		return nil, err
+		return nil, fmt.Errorf("reserve SQLite writer: %w", err)
 	}
 	return &writeTx{Conn: conn, ctx: ctx}, nil
 }
