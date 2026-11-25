@@ -18,14 +18,16 @@ import (
 )
 
 type App struct {
-	Store *Store
-	mu    sync.Mutex
-	subs  map[chan struct{}]struct{}
-	MCP   *mcp.Server
+	Store             *Store
+	mu                sync.Mutex
+	subs              map[chan struct{}]struct{}
+	MCP               *mcp.Server
+	bodyReadTimeout   time.Duration
+	eventWriteTimeout time.Duration
 }
 
 func New(store *Store) *App {
-	a := &App{Store: store, subs: make(map[chan struct{}]struct{})}
+	a := &App{Store: store, subs: make(map[chan struct{}]struct{}), bodyReadTimeout: requestBodyTimeout, eventWriteTimeout: eventWriteTimeout}
 	a.MCP = a.newMCP()
 	return a
 }
@@ -135,6 +137,9 @@ func (a *App) Handler(assets fs.FS) http.Handler {
 		files.ServeHTTP(w, r)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength != 0 {
+			defer boundBodyRead(w, r, a.bodyReadTimeout)()
+		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("X-Frame-Options", "DENY")
@@ -191,7 +196,7 @@ func readObjectBody(r *http.Request, out any) error {
 func decodeObjectBody(r *http.Request, out any, allowEmpty bool) error {
 	raw, err := io.ReadAll(r.Body)
 	if err != nil {
-		return invalid("Request body is too large or unreadable")
+		return bodyReadError(err)
 	}
 	text := strings.TrimSpace(string(raw))
 	if text == "" {
@@ -298,7 +303,7 @@ func (a *App) item(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) events(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
+	_, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unavailable", 500)
 		return
@@ -310,11 +315,19 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 	defer func() { a.mu.Lock(); delete(a.subs, ch); a.mu.Unlock() }()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("X-Accel-Buffering", "no")
-	// Sync on every connection, including reconnects after missed events.
-	if _, err := fmt.Fprint(w, "event: change\ndata: {}\n\n"); err != nil {
+	rc := http.NewResponseController(w)
+	write := func(message string) error {
+		_ = rc.SetWriteDeadline(time.Now().Add(a.eventWriteTimeout))
+		defer rc.SetWriteDeadline(time.Time{})
+		if _, err := fmt.Fprint(w, message); err != nil {
+			return err
+		}
+		return rc.Flush()
+	}
+	// Bound the initial flush too: a slow client may never read even one event.
+	if err := write("event: change\ndata: {}\n\n"); err != nil {
 		return
 	}
-	flusher.Flush()
 	tick := time.NewTicker(20 * time.Second)
 	defer tick.Stop()
 	for {
@@ -327,13 +340,8 @@ func (a *App) events(w http.ResponseWriter, r *http.Request) {
 		case <-tick.C:
 			message = ": heartbeat\n\n"
 		}
-		// Bound writes so disconnected/slow clients cannot hold shutdown open.
-		rc := http.NewResponseController(w)
-		_ = rc.SetWriteDeadline(time.Now().Add(10 * time.Second))
-		if _, err := fmt.Fprint(w, message); err != nil {
+		if err := write(message); err != nil {
 			return
 		}
-		flusher.Flush()
-		_ = rc.SetWriteDeadline(time.Time{})
 	}
 }

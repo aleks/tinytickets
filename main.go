@@ -58,9 +58,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	go a.WatchDatabase(ctx)
+	return serveHTTP(ctx, a, assets, *addr, *dbPath)
+}
+
+func serveHTTP(ctx context.Context, a *app.App, assets fs.FS, addr, dbPath string) error {
+	watchCtx, cancelWatch := context.WithCancel(ctx)
+	watchDone := make(chan struct{})
+	go func() { defer close(watchDone); a.WatchDatabase(watchCtx) }()
+	defer func() { cancelWatch(); <-watchDone }()
 	handler := a.Handler(assets)
-	listenHost, _, err := net.SplitHostPort(*addr)
+	listenHost, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return err
 	}
@@ -80,12 +87,15 @@ func run() error {
 		}
 		handler.ServeHTTP(w, r)
 	})
-	server := &http.Server{Addr: *addr, Handler: guarded, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}
-	listener, err := net.Listen("tcp", *addr)
+	// Bound even requests rejected by the Host guard. Do not set a global
+	// WriteTimeout: SSE and MCP responses may legitimately be long-lived.
+	server := &http.Server{Addr: addr, Handler: guarded, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, BaseContext: func(net.Listener) context.Context { return ctx }}
+	defer server.Close()
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
-	slog.Info("TinyTickets", "url", "http://"+listener.Addr().String(), "database", *dbPath, "mcp", "/mcp")
+	slog.Info("TinyTickets", "url", "http://"+listener.Addr().String(), "database", dbPath, "mcp", "/mcp")
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(listener) }()
 	select {

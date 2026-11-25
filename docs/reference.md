@@ -187,6 +187,8 @@ Keep task specifications in descriptions. Prefer `add_work_log` for implementati
 
 All requests/responses are JSON, except the SSE endpoint. Request bodies accept only the documented fields for that resource and operation; unknown or resource-inapplicable fields are rejected. Errors use `{ "error": "message" }` with an appropriate HTTP status. No CORS access is enabled.
 
+API and MCP request bodies are limited to 1 MiB. Body reads have a 15-second deadline; a timed-out REST body returns `408` and an oversized body returns `413`. Long-running SSE and MCP responses do not have a global response timeout. Database contention returns `503`; refresh state before deciding whether to retry a write, since an interrupted response does not establish whether the write committed.
+
 | Method | Endpoint | Body / filters |
 | --- | --- | --- |
 | GET | `/api/state` | Full workspace snapshot, including archived epics and their tickets/links so direct links and restoration remain possible |
