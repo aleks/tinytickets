@@ -76,7 +76,7 @@ func (f ReadyFilter) sql() (string, []any) {
 	return where, args
 }
 
-func scanTicket(row interface{ Scan(...any) error }) (Ticket, error) {
+func scanTicket(row scanner) (Ticket, error) {
 	var t Ticket
 	err := row.Scan(&t.ID, &t.EpicID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt, &t.StatusSince)
 	return t, err

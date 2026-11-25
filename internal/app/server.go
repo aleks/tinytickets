@@ -231,71 +231,7 @@ func (a *App) collection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		includeArchived := false
-		var archived *bool
-		if kind == "epics" || kind == "tickets" {
-			if raw := r.URL.Query().Get("include_archived"); raw != "" {
-				var err error
-				includeArchived, err = strconv.ParseBool(raw)
-				if err != nil {
-					respond(w, nil, invalid("include_archived must be true or false"), 0)
-					return
-				}
-			}
-		}
-		if kind == "epics" {
-			if raw := r.URL.Query().Get("archived"); raw != "" {
-				v, err := strconv.ParseBool(raw)
-				if err != nil {
-					respond(w, nil, invalid("archived must be true or false"), 0)
-					return
-				}
-				archived = &v
-			}
-		}
-		state, err := a.Store.Snapshot(r.Context())
-		if err != nil {
-			respond(w, nil, err, 0)
-			return
-		}
-		var out any
-		switch kind {
-		case "projects":
-			out = state.Projects
-		case "epics":
-			items := []Epic{}
-			for _, e := range state.Epics {
-				if archived != nil {
-					if e.Archived != *archived {
-						continue
-					}
-				} else if e.Archived && !includeArchived {
-					continue
-				}
-				if matchID(r, "project_id", e.ProjectID) && (r.URL.Query().Get("completed") == "" || strconv.FormatBool(e.Completed) == r.URL.Query().Get("completed")) {
-					items = append(items, e)
-				}
-			}
-			out = items
-		case "tickets":
-			items := []Ticket{}
-			archivedEpics := map[int64]bool{}
-			for _, e := range state.Epics {
-				archivedEpics[e.ID] = e.Archived
-			}
-			for _, t := range state.Tickets {
-				if archivedEpics[t.EpicID] && !includeArchived {
-					continue
-				}
-				if matchID(r, "epic_id", t.EpicID) && (r.URL.Query().Get("status") == "" || t.Status == r.URL.Query().Get("status")) {
-					items = append(items, t)
-				}
-			}
-			out = items
-		case "links":
-			out = state.Links
-		}
-		respond(w, out, nil, 200)
+		a.listCollectionHTTP(w, r, kind)
 		return
 	}
 	if r.Method != "POST" && !(kind == "links" && r.Method == "DELETE") {
@@ -320,11 +256,6 @@ func (a *App) collection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func matchID(r *http.Request, key string, id int64) bool {
-	raw := r.URL.Query().Get(key)
-	return raw == "" || raw == strconv.FormatInt(id, 10)
-}
-
 func (a *App) item(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	if kind != "projects" && kind != "epics" && kind != "tickets" {
@@ -337,40 +268,7 @@ func (a *App) item(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		state, err := a.Store.Snapshot(r.Context())
-		if err != nil {
-			respond(w, nil, err, 0)
-			return
-		}
-		var out any
-		switch kind {
-		case "projects":
-			for _, p := range state.Projects {
-				if p.ID == id {
-					out = p
-					break
-				}
-			}
-		case "epics":
-			for _, e := range state.Epics {
-				if e.ID == id {
-					out = e
-					break
-				}
-			}
-		case "tickets":
-			for _, t := range state.Tickets {
-				if t.ID == id {
-					out = t
-					break
-				}
-			}
-		}
-		if out == nil {
-			respond(w, nil, missing(), 0)
-			return
-		}
-		respond(w, out, nil, 200)
+		a.getItemHTTP(w, r, kind, id)
 		return
 	}
 	if r.Method != "PATCH" && r.Method != "DELETE" {

@@ -207,7 +207,7 @@ All requests/responses are JSON, except the SSE endpoint. Request bodies accept 
 | GET / POST / DELETE | `/api/links` | POST/DELETE: `{ "blocker_id": 1, "blocked_id": 2 }` |
 | GET | `/api/events` | SSE `change` events; fetch `/api/state` after each event |
 
-Status values are `todo`, `in_progress`, `ready_for_review`, `done`. Titles/names are trimmed and limited to 200 characters; descriptions to 100,000 bytes. `description` defaults to empty and `status` to `todo`. Project/epic deletion returns `409` when nonempty unless explicitly force-confirmed as described below. Dependencies can cross epic/project boundaries.
+Status values are `todo`, `in_progress`, `ready_for_review`, `done`. Supplied collection filters must have one nonempty value of the documented type; IDs must be positive integers and statuses must be valid. Malformed filters return `400`, while valid filters with no matches return an empty array. Titles/names are trimmed and limited to 200 characters; descriptions to 100,000 bytes. `description` defaults to empty and `status` to `todo`. Project/epic deletion returns `409` when nonempty unless explicitly force-confirmed as described below. Dependencies can cross epic/project boundaries.
 
 ### Deletion previews and force confirmation
 

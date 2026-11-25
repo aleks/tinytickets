@@ -252,9 +252,11 @@ func buildProjectExecution(state State, events []StatusEvent, id int64, now time
 		byTicket[event.TicketID] = append(byTicket[event.TicketID], event)
 	}
 	statuses := map[int64]string{}
+	byEpic := map[int64][]Ticket{}
 	blocked := map[int64]bool{}
 	for _, t := range state.Tickets {
 		statuses[t.ID] = t.Status
+		byEpic[t.EpicID] = append(byEpic[t.EpicID], t)
 	}
 	for _, l := range state.Links {
 		if status, ok := statuses[l.BlockerID]; ok && status != "done" {
@@ -274,10 +276,7 @@ func buildProjectExecution(state State, events []StatusEvent, id int64, now time
 		if epic.Archived {
 			out.EpicsArchived++
 		}
-		for _, ticket := range state.Tickets {
-			if ticket.EpicID != epic.ID {
-				continue
-			}
+		for _, ticket := range byEpic[epic.ID] {
 			timing, err := deriveExecution(ticket, byTicket[ticket.ID], now)
 			if err != nil {
 				return out, err
@@ -302,24 +301,47 @@ func (s *Store) ProjectExecution(ctx context.Context, id int64) (ProjectExecutio
 	if id <= 0 {
 		return ProjectExecution{}, invalid("A positive project ID is required")
 	}
+	state, events, err := s.projectExecutionData(ctx, id)
+	if err != nil {
+		return ProjectExecution{}, err
+	}
+	// Pure calculation holds neither a transaction nor the pool's connection.
+	return buildProjectExecution(state, events, id, time.Now().UTC())
+}
+
+func (s *Store) projectExecutionData(ctx context.Context, id int64) (State, []StatusEvent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return ProjectExecution{}, err
+		return State{}, nil, err
 	}
 	defer tx.Rollback()
-	state, err := snapshotTx(ctx, tx)
+	project, err := readProject(ctx, tx, id)
 	if err != nil {
-		return ProjectExecution{}, err
+		return State{}, nil, err
+	}
+	state := State{Projects: []Project{project}}
+	state.Epics, err = queryRows(ctx, tx, "SELECT id,project_id,title,completed,archived FROM epics WHERE project_id=? ORDER BY id", []any{id}, scanEpic)
+	if err != nil {
+		return State{}, nil, err
+	}
+	// Include external prerequisite statuses, not their whole projects. Reports
+	// must retain cross-project blocker semantics within this same snapshot.
+	state.Tickets, err = queryRows(ctx, tx, ticketSelect+` WHERE t.epic_id IN (SELECT id FROM epics WHERE project_id=?)
+		OR t.id IN (SELECT l.blocker_id FROM links l JOIN tickets target ON target.id=l.blocked_id
+		JOIN epics e ON e.id=target.epic_id WHERE e.project_id=?) ORDER BY t.id`, []any{id, id}, scanTicket)
+	if err != nil {
+		return State{}, nil, err
+	}
+	state.Links, err = queryRows(ctx, tx, `SELECT l.blocker_id,l.blocked_id FROM links l JOIN tickets t ON t.id=l.blocked_id
+		JOIN epics e ON e.id=t.epic_id WHERE e.project_id=? ORDER BY l.blocker_id,l.blocked_id`, []any{id}, scanLink)
+	if err != nil {
+		return State{}, nil, err
 	}
 	events, err := historyTx(ctx, tx, 0, id)
 	if err != nil {
-		return ProjectExecution{}, err
+		return State{}, nil, err
 	}
-	out, err := buildProjectExecution(state, events, id, time.Now().UTC())
-	if err != nil {
-		return out, err
-	}
-	return out, tx.Commit()
+	return state, events, tx.Commit()
 }
