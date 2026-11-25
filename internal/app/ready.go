@@ -125,15 +125,11 @@ func (s *Store) ClaimTicket(ctx context.Context, f ReadyFilter, ticketID *int64)
 	if ticketID != nil && *ticketID <= 0 {
 		return out, invalid("A positive ticket_id is required")
 	}
-	conn, err := s.db.Conn(ctx)
+	conn, err := beginWrite(ctx, s.db)
 	if err != nil {
 		return out, err
 	}
-	defer conn.Close()
-	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		return out, err
-	}
-	defer conn.ExecContext(context.Background(), "ROLLBACK")
+	defer conn.Rollback()
 	if err = f.validate(ctx, conn); err != nil {
 		return out, err
 	}
@@ -156,7 +152,7 @@ func (s *Store) ClaimTicket(ctx context.Context, f ReadyFilter, ticketID *int64)
 			return out, &APIError{409, "Ticket is not ready: it must be todo, in an unfinished/unarchived epic, with every blocker done"}
 		}
 		// No eligible ticket is a successful, explicit no-work result.
-		_, err = conn.ExecContext(ctx, "COMMIT")
+		err = conn.Commit()
 		return out, err
 	}
 	if err != nil {
@@ -169,7 +165,7 @@ func (s *Store) ClaimTicket(ctx context.Context, f ReadyFilter, ticketID *int64)
 	if err != nil {
 		return out, err
 	}
-	if _, err = conn.ExecContext(ctx, "COMMIT"); err != nil {
+	if err = conn.Commit(); err != nil {
 		return out, err
 	}
 	return ClaimResult{Claimed: true, Ticket: &ticket}, nil

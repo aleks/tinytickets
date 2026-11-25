@@ -184,16 +184,11 @@ func (s *Store) Delete(ctx context.Context, kind string, id int64, options Delet
 	if options.Force && (options.ConfirmationToken == nil || *options.ConfirmationToken == "") {
 		return nil, invalid("force requires a nonempty confirmation_token from a deletion preview")
 	}
-	conn, err := s.db.Conn(ctx)
+	conn, err := beginWrite(ctx, s.db)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
-	// Reserve the SQLite writer before reading: also serializes other processes.
-	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		return nil, err
-	}
-	defer conn.ExecContext(context.Background(), "ROLLBACK")
+	defer conn.Rollback()
 	p, err := deletionPreview(ctx, conn, kind, id)
 	if err != nil {
 		return nil, err
@@ -218,7 +213,7 @@ func (s *Store) Delete(ctx context.Context, kind string, id int64, options Delet
 			return nil, err
 		}
 	}
-	if _, err = conn.ExecContext(ctx, "COMMIT"); err != nil {
+	if err = conn.Commit(); err != nil {
 		return nil, err
 	}
 	return map[string]int64{"id": id}, nil

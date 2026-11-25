@@ -140,15 +140,11 @@ func (s *Store) appendWorkLog(ctx context.Context, id int64, entry WorkLogEntry)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	conn, err := s.db.Conn(ctx)
+	conn, err := beginWrite(ctx, s.db)
 	if err != nil {
 		return out, err
 	}
-	defer conn.Close()
-	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		return out, err
-	}
-	defer conn.ExecContext(context.Background(), "ROLLBACK")
+	defer conn.Rollback()
 	var exists bool
 	if err = conn.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM tickets WHERE id=?)", id).Scan(&exists); err != nil {
 		return out, err
@@ -178,7 +174,7 @@ func (s *Store) appendWorkLog(ctx context.Context, id int64, entry WorkLogEntry)
 	if err != nil {
 		return out, err
 	}
-	if _, err = conn.ExecContext(ctx, "COMMIT"); err != nil {
+	if err = conn.Commit(); err != nil {
 		return ReviewHandoffResult{}, err
 	}
 	return out, nil

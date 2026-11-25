@@ -292,7 +292,7 @@ func (s *Store) Mutate(ctx context.Context, kind, action string, id int64, in In
 			return nil, invalid("epic_id is required")
 		}
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := beginWrite(ctx, s.db)
 	if err != nil {
 		return nil, err
 	}
