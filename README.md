@@ -46,7 +46,8 @@ go build -o tinytickets .
 
 Open **http://127.0.0.1:8080**. Your database defaults to
 `~/.tinytickets/tinytickets.db`. Use `--db` to select another file or `--help` for
-all options.
+all options. Run `./tinytickets --version` to inspect the version and build revision
+without opening a database.
 
 TinyTickets is a **single-user local application without authentication**. Keep it
 on trusted local interfaces and connect only trusted agents.

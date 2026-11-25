@@ -305,6 +305,40 @@ npm --prefix web run test:e2e # isolated browser smoke test against the built bi
 
 For hot reload, run `go run .` in one terminal and `make dev` in another. Open `http://127.0.0.1:5173`; Vite proxies `/api` and `/mcp` to port 8080. Rebuild `web/dist` with `make web` before building or committing frontend changes. Do not rebuild the frontend concurrently with a Go build/test: embedding reads those files during compilation.
 
+### Release builds and version identity
+
+`./tinytickets --version` prints the version and available VCS revision, including
+whether the source tree has local modifications. It does not open a database.
+The MCP server reports the same version. Untagged source builds report `dev`;
+versioned `go install` builds use Go's module version metadata.
+
+Set the release identity when building from a checkout. The version below is an
+example, not a statement that this tag is published:
+
+```sh
+make build VERSION=v0.1.0 REVISION="$(git rev-parse HEAD)"
+```
+
+For a Go-only build using the committed frontend:
+
+```sh
+CGO_ENABLED=0 go build -trimpath \
+  -ldflags "-X github.com/aleks/tinytickets/internal/buildinfo.Version=v0.1.0 -X github.com/aleks/tinytickets/internal/buildinfo.Revision=$(git rev-parse HEAD)" \
+  -o tinytickets .
+```
+
+The module path is `github.com/aleks/tinytickets`. To install a published version,
+replace `VERSION` with an existing repository tag:
+
+```sh
+go install github.com/aleks/tinytickets@VERSION
+```
+
+The installed binary includes the frontend from that tag. Publishing a tag or
+binary is a separate release action; build and test commands do not publish it.
+
+### Go checks and test coverage
+
 Go development uses **Go 1.26+**, as declared in `go.mod`. Run `make lint-go` and
 `make test` for Go changes. `make check` includes both alongside frontend/browser
 verification; `make test` remains Go-only and does not download a linter.

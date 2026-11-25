@@ -3,8 +3,13 @@
 # Pin the analysis tool without adding it to the application's module graph.
 STATICCHECK_VERSION := v0.8.2
 
+# Empty values retain Go module/VCS build metadata and the development fallback.
+VERSION ?=
+REVISION ?=
+LDFLAGS ?= -X github.com/aleks/tinytickets/internal/buildinfo.Version=$(VERSION) -X github.com/aleks/tinytickets/internal/buildinfo.Revision=$(REVISION)
+
 build: web
-	CGO_ENABLED=0 go build -trimpath -o tinytickets .
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o tinytickets .
 
 web:
 	npm --prefix web ci
@@ -30,7 +35,7 @@ check:
 	npm --prefix web run check
 	npm --prefix web run build
 	$(MAKE) lint-go
-	CGO_ENABLED=0 go build -trimpath -o tinytickets .
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o tinytickets .
 	$(MAKE) test
 	npm --prefix web run test:e2e
 	npm --prefix site run test:browser

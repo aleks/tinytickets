@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aleks/tinytickets/internal/app"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"tinytickets/internal/app"
 )
 
 // Run the actual CLI in a subprocess, without writing test-runner output into

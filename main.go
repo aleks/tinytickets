@@ -17,8 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aleks/tinytickets/internal/app"
+	"github.com/aleks/tinytickets/internal/buildinfo"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"tinytickets/internal/app"
 )
 
 //go:embed all:web/dist
@@ -32,16 +33,25 @@ func main() {
 }
 
 func run() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	dbPath := flag.String("db", filepath.Join(home, ".tinytickets", "tinytickets.db"), "SQLite database path")
+	dbPath := flag.String("db", "", "SQLite database path (default ~/.tinytickets/tinytickets.db)")
 	addr := flag.String("addr", "127.0.0.1:8080", "HTTP listen address")
 	stdio := flag.Bool("mcp-stdio", false, "Run only the MCP stdio server (no HTTP)")
+	showVersion := flag.Bool("version", false, "Print version and build revision without opening a database")
 	flag.Parse()
-	if strings.HasPrefix(*dbPath, "~/") {
-		*dbPath = filepath.Join(home, (*dbPath)[2:])
+	if *showVersion {
+		fmt.Fprintln(os.Stdout, buildinfo.Current().String())
+		return nil
+	}
+	if *dbPath == "" || strings.HasPrefix(*dbPath, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		if *dbPath == "" {
+			*dbPath = filepath.Join(home, ".tinytickets", "tinytickets.db")
+		} else {
+			*dbPath = filepath.Join(home, (*dbPath)[2:])
+		}
 	}
 	store, err := app.Open(*dbPath)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"tinytickets/internal/app"
+	"github.com/aleks/tinytickets/internal/app"
 )
 
 func TestHTTPProcessHelper(t *testing.T) {
